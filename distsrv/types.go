@@ -1,0 +1,56 @@
+package distsrv
+
+import (
+	"imgpull/distsrv/v1oci"
+	"imgpull/distsrv/v2docker"
+)
+
+const (
+	V2dockerManifestListMt = "application/vnd.docker.distribution.manifest.list.v2+json"
+	V2dockerManifestMt     = "application/vnd.docker.distribution.manifest.v2+json"
+	V1ociIndexMt           = "application/vnd.oci.image.index.v1+json"
+	V1ociManifestMt        = "application/vnd.oci.image.manifest.v1+json"
+)
+
+type ManifestType int
+
+const (
+	V2dockerManifestList ManifestType = iota
+	V2dockerManifest
+	V1ociIndex
+	V1ociDescriptor
+	Unknown
+)
+
+var allManifestTypes []string = []string{
+	V2dockerManifestListMt,
+	V2dockerManifestMt,
+	V1ociIndexMt,
+	V1ociManifestMt,
+}
+
+type BearerAuth struct {
+	Realm   string
+	Service string
+}
+
+type BearerToken struct {
+	Token string `json:"token"`
+}
+
+type ManifestHolder struct {
+	ImageUrl             string                `json:"imageUrl"`
+	MediaType            string                `json:"mediaType"`
+	Digest               string                `json:"digest"`
+	Size                 int                   `json:"size"`
+	Type                 ManifestType          `json:"type"`
+	V1ociIndex           v1oci.Index           `json:"v1.oci.index"`
+	V1ociDescriptor      v1oci.Descriptor      `json:"v1.oci.descriptor"`
+	V2dockerManifestList v2docker.ManifestList `json:"v2.docker.manifestList"`
+	V2dockerManifest     v2docker.Manifest     `json:"v2.docker.Manifest"`
+}
+
+func IsImageManifest(mediaType string) bool {
+	return mediaType != V2dockerManifestListMt &&
+		mediaType != V1ociIndexMt
+}
