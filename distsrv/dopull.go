@@ -9,18 +9,6 @@ import (
 
 var unauth []int = []int{http.StatusUnauthorized, http.StatusForbidden}
 
-// TODO NEED OS AND ARCH
-// X v2
-// X if 401
-// X   v2Auth or fail
-// X get manifest list or fail
-//   if its a manifest list
-//     select image manifest using OS and arch or fail
-//     TODO /home/eace/projects/docker-distribution/vendor/go.opentelemetry.io/otel/semconv/v1.10.0/resource.go
-//   get manifest
-//   for blob in blob
-//     get blof
-
 func (r *Registry) Pull() error {
 	status, auth, err := r.v2()
 	if err != nil {
@@ -33,11 +21,37 @@ func (r *Registry) Pull() error {
 			return err
 		}
 	}
-	mh, err := r.v2Manifests()
+	mh, err := r.v2Manifests("")
 	if err != nil {
 		return err
 	}
-	fmt.Println(mh)
+	if mh.IsManifestList() {
+		digest, err := mh.GetImageDigestFor(r.OSType, r.ArchType)
+		if err != nil {
+			return err
+		}
+		im, err := r.v2Manifests(digest)
+		if err != nil {
+			return err
+		}
+		mh = im
+	}
+	//json, err := mh.ToString()
+	//if err == nil {
+	//	fmt.Println(json)
+	//}
+	for {
+		layer, err := mh.NextLayer()
+		if err != nil {
+			return err
+		}
+		if layer == (Layer{}) {
+			break
+		}
+		if err := r.v2Blobs(layer, "/tmp"); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

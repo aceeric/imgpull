@@ -15,12 +15,21 @@ const (
 type ManifestType int
 
 const (
-	V2dockerManifestList ManifestType = iota
+	Undefined ManifestType = iota
+	V2dockerManifestList
 	V2dockerManifest
 	V1ociIndex
-	V1ociDescriptor
-	Unknown
+	//V1ociDescriptor
+	V1ociManifest
 )
+
+var ManifestTypeToString = map[ManifestType]string{
+	Undefined:            "Undefined",
+	V2dockerManifestList: "V2dockerManifestList",
+	V2dockerManifest:     "V2dockerManifest",
+	V1ociIndex:           "V1ociIndex",
+	V1ociManifest:        "V1ociManifest",
+}
 
 var allManifestTypes []string = []string{
 	V2dockerManifestListMt,
@@ -39,15 +48,23 @@ type BearerToken struct {
 }
 
 type ManifestHolder struct {
-	ImageUrl             string                `json:"imageUrl"`
-	MediaType            string                `json:"mediaType"`
-	Digest               string                `json:"digest"`
-	Size                 int                   `json:"size"`
-	Type                 ManifestType          `json:"type"`
-	V1ociIndex           v1oci.Index           `json:"v1.oci.index"`
-	V1ociDescriptor      v1oci.Descriptor      `json:"v1.oci.descriptor"`
+	Type       ManifestType `json:"type"`
+	CurBlob    int          `json:"curBlob"`
+	ImageUrl   string       `json:"imageUrl"`
+	MediaType  string       `json:"mediaType"`
+	Digest     string       `json:"digest"`
+	Size       int          `json:"size"`
+	V1ociIndex v1oci.Index  `json:"v1.oci.index"`
+	//V1ociDescriptor      v1oci.Descriptor      `json:"v1.oci.descriptor"`
+	V1ociManifest        v1oci.Manifest        `json:"v1.oci.manifest"`
 	V2dockerManifestList v2docker.ManifestList `json:"v2.docker.manifestList"`
 	V2dockerManifest     v2docker.Manifest     `json:"v2.docker.Manifest"`
+}
+
+type Layer struct {
+	MediaType string `json:"mediaType"`
+	Digest    string `json:"digest"`
+	Size      int    `json:"size"`
 }
 
 func IsImageManifest(mediaType string) bool {

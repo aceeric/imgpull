@@ -20,9 +20,11 @@ import (
 
 func main() {
 	image := "quay.io/prometheus/alertmanager:v0.28.0-rc.0"
+	arch := "amd64"
+	os := "linux"
 	// rate limiting:
 	//image := "docker.io/hello-world:latest"
-	r, err := distsrv.NewRegistry(image)
+	r, err := distsrv.NewRegistry(image, os, arch)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -1,19 +1,19 @@
 package v2docker
 
 type ManifestList struct {
-	SchemaVersion int64                `json:"schemaVersion"`
-	MediaType     string               `json:"mediaType"`
-	Manifests     []ManifestDescriptor `json:"manifests"`
+	SchemaVersion int64        `json:"schemaVersion"`
+	MediaType     string       `json:"mediaType"`
+	Manifests     []Descriptor `json:"manifests"`
 }
 
-type ManifestDescriptor struct {
-	MediaType   string            `json:"mediaType,omitempty"`
-	Digest      string            `json:"digest,omitempty"`
-	Size        int64             `json:"size,omitempty"`
-	URLs        []string          `json:"urls,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-	Platform    PlatformSpec      `json:"platform"`
-}
+// type ManifestDescriptor struct {
+// 	MediaType   string            `json:"mediaType,omitempty"`
+// 	Digest      string            `json:"digest,omitempty"`
+// 	Size        int64             `json:"size,omitempty"`
+// 	URLs        []string          `json:"urls,omitempty"`
+// 	Annotations map[string]string `json:"annotations,omitempty"`
+// 	Platform    PlatformSpec      `json:"platform"`
+// }
 
 type PlatformSpec struct {
 	Architecture string   `json:"architecture"`

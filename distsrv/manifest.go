@@ -7,10 +7,12 @@ import (
 
 func NewManifestHolder(contentType string, bytes []byte) (ManifestHolder, error) {
 	mt := ToManifestType(contentType)
-	if mt == Unknown {
+	if mt == Undefined {
 		return ManifestHolder{}, fmt.Errorf("unknown manifest type: %s", contentType)
 	}
-	mh := ManifestHolder{}
+	mh := ManifestHolder{
+		Type: mt,
+	}
 	err := mh.UnMarshalManifest(mt, bytes)
 	if err != nil {
 		return ManifestHolder{}, err
@@ -27,9 +29,10 @@ func ToManifestType(contentType string) ManifestType {
 	case V1ociIndexMt:
 		return V1ociIndex
 	case V1ociManifestMt:
-		return V1ociDescriptor
+		//return V1ociDescriptor
+		return V1ociManifest
 	default:
-		return Unknown
+		return Undefined
 	}
 }
 
@@ -42,10 +45,79 @@ func (mh *ManifestHolder) UnMarshalManifest(mt ManifestType, bytes []byte) error
 		err = json.Unmarshal(bytes, &mh.V2dockerManifest)
 	case V1ociIndex:
 		err = json.Unmarshal(bytes, &mh.V1ociIndex)
-	case V1ociDescriptor:
-		err = json.Unmarshal(bytes, &mh.V1ociDescriptor)
+	// case V1ociDescriptor:
+	// 	err = json.Unmarshal(bytes, &mh.V1ociDescriptor)
+	case V1ociManifest:
+		err = json.Unmarshal(bytes, &mh.V1ociManifest)
 	default:
 		err = fmt.Errorf("unknown manifest type: %d", mt)
 	}
 	return err
+}
+
+func (mh *ManifestHolder) IsManifestList() bool {
+	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
+}
+
+// case V1ociDescriptor:
+// 	digest =mh.V1ociDescriptor..Layers[mh.CurBlob].Digest
+// 	mh.CurBlob++
+
+func (mh *ManifestHolder) NextLayer() (Layer, error) {
+	layer := Layer{}
+	switch mh.Type {
+	case V2dockerManifest:
+		if mh.CurBlob < len(mh.V2dockerManifest.Layers) {
+			layer.Digest = mh.V2dockerManifest.Layers[mh.CurBlob].Digest
+			layer.MediaType = mh.V2dockerManifest.Layers[mh.CurBlob].MediaType
+			layer.Size = int(mh.V2dockerManifest.Layers[mh.CurBlob].Size)
+			mh.CurBlob++
+		}
+	case V1ociManifest:
+		if mh.CurBlob < len(mh.V1ociManifest.Layers) {
+			layer.Digest = mh.V1ociManifest.Layers[mh.CurBlob].Digest
+			layer.MediaType = mh.V1ociManifest.Layers[mh.CurBlob].MediaType
+			layer.Size = int(mh.V1ociManifest.Layers[mh.CurBlob].Size)
+			mh.CurBlob++
+		}
+	default:
+		return layer, fmt.Errorf("can't request layer from this kind of manifest: %s", ManifestTypeToString[mh.Type])
+	}
+	return layer, nil
+}
+
+func (mh *ManifestHolder) ToString() (string, error) {
+	var err error
+	var marshalled []byte
+	switch mh.Type {
+	case V2dockerManifestList:
+		marshalled, err = json.MarshalIndent(mh.V2dockerManifestList, "", "   ")
+	case V2dockerManifest:
+		marshalled, err = json.MarshalIndent(mh.V2dockerManifest, "", "   ")
+	case V1ociIndex:
+		marshalled, err = json.MarshalIndent(mh.V1ociIndex, "", "   ")
+		// case V1ociDescriptor:
+		// 	marshalled, err = json.MarshalIndent(mh.V1ociDescriptor, "", "   ")
+	case V1ociManifest:
+		marshalled, err = json.MarshalIndent(mh.V1ociManifest, "", "   ")
+	}
+	return string(marshalled), err
+}
+
+func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, error) {
+	switch mh.Type {
+	case V2dockerManifestList:
+		for _, mfst := range mh.V2dockerManifestList.Manifests {
+			if mfst.Platform.OS == os && mfst.Platform.Architecture == arch {
+				return mfst.Digest, nil
+			}
+		}
+	case V1ociIndex:
+		for _, mfst := range mh.V1ociIndex.Manifests {
+			if mfst.Platform.Os == os && mfst.Platform.Architecture == arch {
+				return mfst.Digest, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("unable to get manifest SHA for os %s, arch %s", os, arch)
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -12,6 +14,7 @@ const (
 	kib           = 1024
 	mib           = 1024 * kib
 	manifestLimit = 100 * mib
+	maxBlobRead   = 100 * mib
 )
 
 func (r *Registry) v2() (int, []string, error) {
@@ -51,11 +54,49 @@ func (r *Registry) v2Auth(ba BearerAuth) error {
 	return nil
 }
 
-// TODO NEED HEAD REQUEST
+func (r *Registry) v2Blobs(layer Layer, destPath string) error {
+	url := fmt.Sprintf("%s/v2/%s/blobs/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, layer.Digest)
+	resp, err := r.Client.Get(url)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		return err
+	}
+	fName := strings.Replace(filepath.Join(destPath, layer.Digest), "sha256:", "", -1)
+	blobFile, err := os.Create(fName)
+	if err != nil {
+		return err
+	}
+	defer blobFile.Close()
+
+	bytesRead := 0
+	for {
+		part, err := io.ReadAll(io.LimitReader(resp.Body, maxBlobRead))
+		if err != nil {
+			return err
+		}
+		if len(part) == 0 {
+			break
+		}
+		bytesRead += len(part)
+		blobFile.Write(part)
+	}
+	if bytesRead != layer.Size {
+		return fmt.Errorf("error getting blob - expected %d bytes, got %d bytes instead", layer.Size, bytesRead)
+	}
+	return nil
+}
+
+// TODO NEED HEAD REQUEST EVENTUALLY FOR COMPAT W/ CONTAINER REGISTRY TO REPLACE CRANE
 // TODO /home/eace/go/pkg/mod/github.com/google/go-containerregistry@v0.20.2/pkg/v1/remote/fetcher.go
 
-func (r *Registry) v2Manifests() (ManifestHolder, error) {
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, r.ImgPull.Ref)
+func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
+	ref := r.ImgPull.Ref
+	if digest != "" {
+		ref = digest
+	}
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, ref)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	req.Header.Set("Bearer", r.Token.Token)
