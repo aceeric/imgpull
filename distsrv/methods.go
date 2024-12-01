@@ -54,7 +54,7 @@ func (r *Registry) v2Auth(ba BearerAuth) error {
 	return nil
 }
 
-func (r *Registry) v2Blobs(layer Layer, destPath string) error {
+func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, layer.Digest)
 	resp, err := r.Client.Get(url)
 	if resp != nil {
@@ -63,7 +63,10 @@ func (r *Registry) v2Blobs(layer Layer, destPath string) error {
 	if err != nil {
 		return err
 	}
-	fName := strings.Replace(filepath.Join(destPath, layer.Digest), "sha256:", "", -1)
+	fName := filepath.Join(destPath, layer.Digest)
+	if !isConfig {
+		fName = strings.Replace(filepath.Join(fName+".tar.gz"), "sha256:", "", -1)
+	}
 	blobFile, err := os.Create(fName)
 	if err != nil {
 		return err

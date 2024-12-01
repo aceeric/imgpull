@@ -3,6 +3,7 @@ package distsrv
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 func NewManifestHolder(contentType string, bytes []byte) (ManifestHolder, error) {
@@ -29,7 +30,6 @@ func ToManifestType(contentType string) ManifestType {
 	case V1ociIndexMt:
 		return V1ociIndex
 	case V1ociManifestMt:
-		//return V1ociDescriptor
 		return V1ociManifest
 	default:
 		return Undefined
@@ -45,8 +45,6 @@ func (mh *ManifestHolder) UnMarshalManifest(mt ManifestType, bytes []byte) error
 		err = json.Unmarshal(bytes, &mh.V2dockerManifest)
 	case V1ociIndex:
 		err = json.Unmarshal(bytes, &mh.V1ociIndex)
-	// case V1ociDescriptor:
-	// 	err = json.Unmarshal(bytes, &mh.V1ociDescriptor)
 	case V1ociManifest:
 		err = json.Unmarshal(bytes, &mh.V1ociManifest)
 	default:
@@ -58,10 +56,6 @@ func (mh *ManifestHolder) UnMarshalManifest(mt ManifestType, bytes []byte) error
 func (mh *ManifestHolder) IsManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
-
-// case V1ociDescriptor:
-// 	digest =mh.V1ociDescriptor..Layers[mh.CurBlob].Digest
-// 	mh.CurBlob++
 
 func (mh *ManifestHolder) NextLayer() (Layer, error) {
 	layer := Layer{}
@@ -96,12 +90,27 @@ func (mh *ManifestHolder) ToString() (string, error) {
 		marshalled, err = json.MarshalIndent(mh.V2dockerManifest, "", "   ")
 	case V1ociIndex:
 		marshalled, err = json.MarshalIndent(mh.V1ociIndex, "", "   ")
-		// case V1ociDescriptor:
-		// 	marshalled, err = json.MarshalIndent(mh.V1ociDescriptor, "", "   ")
 	case V1ociManifest:
 		marshalled, err = json.MarshalIndent(mh.V1ociManifest, "", "   ")
 	}
 	return string(marshalled), err
+}
+
+func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
+	layer := Layer{}
+	switch mh.Type {
+	case V2dockerManifest:
+		layer.Digest = mh.V2dockerManifest.Config.Digest
+		layer.MediaType = mh.V2dockerManifest.Config.MediaType
+		layer.Size = int(mh.V2dockerManifest.Config.Size)
+	case V1ociManifest:
+		layer.Digest = mh.V1ociManifest.Config.Digest
+		layer.MediaType = mh.V1ociManifest.Config.MediaType
+		layer.Size = int(mh.V1ociManifest.Config.Size)
+	default:
+		return layer, fmt.Errorf("can't get image config from this kind of manifest: %s", ManifestTypeToString[mh.Type])
+	}
+	return layer, nil
 }
 
 func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, error) {
@@ -120,4 +129,36 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 		}
 	}
 	return "", fmt.Errorf("unable to get manifest SHA for os %s, arch %s", os, arch)
+}
+
+func (mh *ManifestHolder) NewDockerTarManifest(ip ImagePull) (DockerTarManifest, error) {
+	m := DockerTarManifest{}
+	switch mh.Type {
+	case V2dockerManifest:
+		m.Config = mh.V2dockerManifest.Config.Digest
+		m.RepoTags = []string{ip.ImageUrl()}
+		for _, layer := range mh.V2dockerManifest.Layers {
+			if ext, err := ExtensionForLayer(layer.MediaType); err != nil {
+				return m, err
+			} else {
+				m.Layers = append(m.Layers, layer.Digest+ext)
+			}
+		}
+	case V1ociManifest:
+		m.Config = mh.V1ociManifest.Config.Digest
+		m.RepoTags = []string{ip.ImageUrl()}
+		for _, layer := range mh.V1ociManifest.Layers {
+			if ext, err := ExtensionForLayer(layer.MediaType); err != nil {
+				return m, err
+			} else {
+				m.Layers = append(m.Layers, layer.Digest+ext)
+			}
+		}
+	default:
+		return m, fmt.Errorf("can't create docker tar manifest from this kind of manifest: %s", ManifestTypeToString[mh.Type])
+	}
+	for idx, layer := range m.Layers {
+		m.Layers[idx] = strings.Replace(layer, "sha256:", "", -1)
+	}
+	return m, nil
 }

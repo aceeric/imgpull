@@ -19,37 +19,14 @@ import (
 // "application/vnd.docker.distribution.manifest.v1+json,application/vnd.docker.distribution.manifest.v1+prettyjws,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.index.v1+json"
 
 func main() {
-	image := "quay.io/prometheus/alertmanager:v0.28.0-rc.0"
+	image := "quay.io/keycloak/keycloak-operator:26.0"
 	arch := "amd64"
 	os := "linux"
-	// rate limiting:
-	//image := "docker.io/hello-world:latest"
 	r, err := distsrv.NewRegistry(image, os, arch)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = r.Pull()
+	err = r.PullTar("keycloak-operator-26.0.tar")
 	fmt.Println(err)
 }
-
-// func heroku_test() {
-// 	url := "https://quay.io/"
-// 	username := "" // anonymous
-// 	password := "" // anonymous
-// 	hub, err := registry.New(url, username, password)
-// 	if err != nil {
-// 		fmt.Printf("%s\n", err)
-// 		return
-// 	}
-// 	manifest, err := hub.ManifestList("appzygy/ociregistry", "1.5.0")
-// 	if err != nil {
-// 		fmt.Printf("%s\n", err)
-// 		return
-// 	}
-// 	marshaled, err := json.MarshalIndent(manifest.ManifestList, "", "   ")
-// 	if err != nil {
-// 		log.Fatalf("marshaling error: %s", err)
-// 	}
-// 	fmt.Println(string(marshaled))
-// }
