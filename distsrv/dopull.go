@@ -1,6 +1,7 @@
 package distsrv
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -99,6 +100,10 @@ func (r *Registry) authenticate(auth []string) error {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			ba := ParseBearer(hdr)
 			return r.v2Auth(ba)
+		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
+			delimited := fmt.Sprintf("%s:%s", r.Username, r.Password)
+			encoded := base64.StdEncoding.EncodeToString([]byte(delimited))
+			return r.v2Basic(encoded)
 		}
 	}
 	return fmt.Errorf("unable to parse auth param: %v", auth)

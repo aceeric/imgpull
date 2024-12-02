@@ -95,7 +95,7 @@ func NewImagePull(url string) (ImagePull, error) {
 		Org:        org,
 		Image:      img,
 		Ref:        ref,
-		Scheme:     "https", // for now
+		Scheme:     "https",
 	}, nil
 }
 
@@ -114,4 +114,8 @@ func (ip *ImagePull) ImageUrl() string {
 
 func (ip *ImagePull) RegistryUrl() string {
 	return fmt.Sprintf("%s://%s", ip.Scheme, ip.Server)
+}
+
+func (ip *ImagePull) WithScheme(scheme string) {
+	ip.Scheme = scheme
 }

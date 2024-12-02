@@ -13,7 +13,9 @@ func main() {
 		distsrv.Usage()
 		os.Exit(1)
 	}
-	r, err := distsrv.NewRegistry(opts.Val(distsrv.ImageOpt), opts.Val(distsrv.OsOpt), opts.Val(distsrv.ArchOpt))
+	r, err := distsrv.NewRegistry(opts.Val(distsrv.ImageOpt), opts.Val(distsrv.OsOpt),
+		opts.Val(distsrv.ArchOpt), opts.Val(distsrv.UsernameOpt), opts.Val(distsrv.PasswordOpt),
+		opts.Val(distsrv.SchemeOpt))
 	if err != nil {
 		fmt.Println(err)
 		return

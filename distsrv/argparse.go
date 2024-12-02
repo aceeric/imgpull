@@ -22,6 +22,9 @@ const DestOpt OptName = "dest"
 const OsOpt OptName = "os"
 const ArchOpt OptName = "arch"
 const NamespaceOpt OptName = "namespace"
+const UsernameOpt OptName = "user"
+const PasswordOpt OptName = "password"
+const SchemeOpt OptName = "scheme"
 
 type OptMap map[OptName]Opt
 
@@ -44,6 +47,9 @@ func ParseArgs() (OptMap, bool) {
 		OsOpt:        {Name: OsOpt, Short: "o", Long: "os", Dflt: runtime.GOOS},
 		ArchOpt:      {Name: ArchOpt, Short: "a", Long: "arch", Dflt: runtime.GOARCH},
 		NamespaceOpt: {Name: NamespaceOpt, Short: "n", Long: "ns"},
+		UsernameOpt:  {Name: UsernameOpt, Short: "u", Long: "user"},
+		PasswordOpt:  {Name: PasswordOpt, Short: "p", Long: "password"},
+		SchemeOpt:    {Name: SchemeOpt, Short: "s", Long: "scheme", Dflt: "https"},
 	}
 	for i := 1; i < len(os.Args); i++ {
 		parsed := false

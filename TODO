@@ -1,5 +1,5 @@
 
-basic auth
 create locks on blob files
 check of blob file already exists
-configurable locations for interim files?
+temp dir cleanup
+configurable locations for interim files

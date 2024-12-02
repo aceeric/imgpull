@@ -56,6 +56,10 @@ type BearerToken struct {
 	Token string `json:"token"`
 }
 
+type BasicAuth struct {
+	Encoded string `json:"encoded"`
+}
+
 type ManifestHolder struct {
 	Type       ManifestType `json:"type"`
 	CurBlob    int          `json:"curBlob"`

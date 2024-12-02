@@ -30,6 +30,24 @@ func (r *Registry) v2() (int, []string, error) {
 	return resp.StatusCode, auth, err
 }
 
+func (r *Registry) v2Basic(encoded string) error {
+	url := fmt.Sprintf("%s/v2/", r.ImgPull.RegistryUrl())
+	req, _ := http.NewRequest("HEAD", url, nil)
+	req.Header.Set("Authorization", "Basic "+encoded)
+	resp, err := r.Client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("basic auth returned status code %d", resp.StatusCode)
+	}
+	r.Basic = BasicAuth{Encoded: encoded}
+	return nil
+}
+
 // Bearer realm="https://quay.io/v2/auth",service="quay.io"
 func (r *Registry) v2Auth(ba BearerAuth) error {
 	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, r.ImgPull.Repository, ba.Service)
@@ -56,7 +74,11 @@ func (r *Registry) v2Auth(ba BearerAuth) error {
 
 func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, layer.Digest)
-	resp, err := r.Client.Get(url)
+	req, _ := http.NewRequest("GET", url, nil)
+	if r.hasAuth() {
+		req.Header.Set(r.authHdr())
+	}
+	resp, err := r.Client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -102,7 +124,9 @@ func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, ref)
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
-	req.Header.Set("Bearer", r.Token.Token)
+	if r.hasAuth() {
+		req.Header.Set(r.authHdr())
+	}
 	resp, err := r.Client.Do(req)
 	if err != nil {
 		return ManifestHolder{}, err
