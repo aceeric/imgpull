@@ -3,30 +3,24 @@ package main
 import (
 	"fmt"
 	"imgpull/distsrv"
+	"os"
 )
 
-// NOTES:
-// quay.io/appzygy/ociregistry:1.5.0 - DOES NOT RETURN A MANIFEST LIST!!
-//
-// just handle the convo:
-// as in mock
-// /v2/
-// auth
-// get image list
-// get image
-//   manifest
-//   blobs
-// "application/vnd.docker.distribution.manifest.v1+json,application/vnd.docker.distribution.manifest.v1+prettyjws,application/vnd.docker.distribution.manifest.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.index.v1+json"
-
+// bin/imgpull docker.io/hello-world:latest ./hello-world.tar
 func main() {
-	image := "quay.io/keycloak/keycloak-operator:26.0"
-	arch := "amd64"
-	os := "linux"
-	r, err := distsrv.NewRegistry(image, os, arch)
+	opts, ok := distsrv.ParseArgs()
+	if !ok {
+		distsrv.Usage()
+		os.Exit(1)
+	}
+	r, err := distsrv.NewRegistry(opts.Val(distsrv.ImageOpt), opts.Val(distsrv.OsOpt), opts.Val(distsrv.ArchOpt))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = r.PullTar("keycloak-operator-26.0.tar")
-	fmt.Println(err)
+	err = r.PullTar(opts.Val(distsrv.DestOpt))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }

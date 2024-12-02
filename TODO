@@ -1,5 +1,5 @@
 
-
-Create tarball
+basic auth
 create locks on blob files
 check of blob file already exists
+configurable locations for interim files?
