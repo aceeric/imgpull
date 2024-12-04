@@ -72,6 +72,9 @@ func (r *Registry) v2Auth(ba BearerAuth) error {
 	return nil
 }
 
+// TODO for manifests and blobs check size and digest against expected as in
+// /home/eace/projects/go-containerregistry/pkg/v1/remote/fetcher.go
+
 func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, layer.Digest)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -114,7 +117,8 @@ func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 }
 
 // TODO NEED HEAD REQUEST EVENTUALLY FOR COMPAT W/ CONTAINER REGISTRY TO REPLACE CRANE
-// TODO /home/eace/go/pkg/mod/github.com/google/go-containerregistry@v0.20.2/pkg/v1/remote/fetcher.go
+// TODO /home/eace/projects/go-containerregistry/pkg/v1/remote/fetcher.go
+// returns descriptor with digest, size, and media type
 
 func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
 	ref := r.ImgPull.Ref

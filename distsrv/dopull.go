@@ -13,7 +13,7 @@ import (
 
 var unauth []int = []int{http.StatusUnauthorized, http.StatusForbidden}
 
-func (r *Registry) PullTar(toFile string) error {
+func (r *Registry) PullTar() error {
 	tmpDir, err := os.MkdirTemp("/tmp", "imgpull.")
 	if err != nil {
 		return err
@@ -27,7 +27,7 @@ func (r *Registry) PullTar(toFile string) error {
 	if tm, err := r.Pull(tmpDir); err != nil {
 		return err
 	} else {
-		return toTar(tm, toFile, tmpDir)
+		return toTar(tm, r.Opts.Dest, tmpDir)
 	}
 }
 
@@ -52,7 +52,7 @@ func (r *Registry) Pull(toPath string) (DockerTarManifest, error) {
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
-		digest, err := mh.GetImageDigestFor(r.OSType, r.ArchType)
+		digest, err := mh.GetImageDigestFor(r.Opts.OSType, r.Opts.ArchType)
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
@@ -101,7 +101,7 @@ func (r *Registry) authenticate(auth []string) error {
 			ba := ParseBearer(hdr)
 			return r.v2Auth(ba)
 		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
-			delimited := fmt.Sprintf("%s:%s", r.Username, r.Password)
+			delimited := fmt.Sprintf("%s:%s", r.Opts.Username, r.Opts.Password)
 			encoded := base64.StdEncoding.EncodeToString([]byte(delimited))
 			return r.v2Basic(encoded)
 		}
@@ -117,8 +117,8 @@ func saveManifest(mh ManifestHolder, toPath string, name string) error {
 	return saveFile([]byte(json), toPath, name)
 }
 
-// it has to be written as an array of []tarexport.manifestItem
 func saveDockerTarManifest(tm DockerTarManifest, toPath string, name string) error {
+	// it has to be written as an array of []tarexport.manifestItem
 	manifestArray := make([]DockerTarManifest, 1)
 	manifestArray[0] = tm
 	marshalled, err := json.MarshalIndent(manifestArray, "", "   ")

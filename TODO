@@ -3,3 +3,4 @@ create locks on blob files
 check of blob file already exists
 temp dir cleanup
 configurable locations for interim files
+rename distsrv package to /pkg which is expected since this is a "library"

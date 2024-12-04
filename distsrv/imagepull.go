@@ -15,7 +15,7 @@ const (
 // ImagePull parses the components of an image pull. If url is
 // `foo.io/bar/baz:1.2.3` then:
 //
-//	Raw        := foo.io/bar/baz:v1.2.3
+//	raw        := foo.io/bar/baz:v1.2.3
 //	PullType   := byTag
 //	Registry   := foo.io
 //	Server     := foo.io
@@ -114,8 +114,4 @@ func (ip *ImagePull) ImageUrl() string {
 
 func (ip *ImagePull) RegistryUrl() string {
 	return fmt.Sprintf("%s://%s", ip.Scheme, ip.Server)
-}
-
-func (ip *ImagePull) WithScheme(scheme string) {
-	ip.Scheme = scheme
 }
