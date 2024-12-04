@@ -38,7 +38,7 @@ type ImagePull struct {
 // NewImagePull parses the passed image url (e.g. docker.io/hello-world:latest,
 // or docker.io/library/hello-world@sha256:...) into a 'ImagePull' struct. The url
 // MUST begin with a registry ref (e.g. quay.io) - it is not (and cannot be) inferred.
-func NewImagePull(url string) (ImagePull, error) {
+func NewImagePull(url, scheme string) (ImagePull, error) {
 	org := ""
 	img := ""
 	ref := ""
@@ -95,7 +95,7 @@ func NewImagePull(url string) (ImagePull, error) {
 		Org:        org,
 		Image:      img,
 		Ref:        ref,
-		Scheme:     "https",
+		Scheme:     scheme,
 	}, nil
 }
 

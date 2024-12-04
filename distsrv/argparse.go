@@ -25,6 +25,9 @@ const NamespaceOpt OptName = "namespace"
 const UsernameOpt OptName = "user"
 const PasswordOpt OptName = "password"
 const SchemeOpt OptName = "scheme"
+const CertOpt OptName = "cert"
+const KeyOpt OptName = "key"
+const CAOpt OptName = "cacert"
 
 type OptMap map[OptName]Opt
 
@@ -50,6 +53,9 @@ func ParseArgs() (OptMap, bool) {
 		UsernameOpt:  {Name: UsernameOpt, Short: "u", Long: "user"},
 		PasswordOpt:  {Name: PasswordOpt, Short: "p", Long: "password"},
 		SchemeOpt:    {Name: SchemeOpt, Short: "s", Long: "scheme", Dflt: "https"},
+		CertOpt:      {Name: CertOpt, Short: "c", Long: "cert"},
+		KeyOpt:       {Name: KeyOpt, Short: "k", Long: "key"},
+		CAOpt:        {Name: CAOpt, Short: "x", Long: "cacert"},
 	}
 	for i := 1; i < len(os.Args); i++ {
 		parsed := false
@@ -92,29 +98,33 @@ func getval(short, long string, args []string, i int) (string, int) {
 		// positional param
 		return "", 0
 	}
-	// --foo bar
-	opt := "--" + long
-	if args[i] == opt && i < len(args)-1 {
-		return args[i+1], i + 1
+	if long != "" {
+		// --foo bar
+		opt := "--" + long
+		if args[i] == opt && i < len(args)-1 {
+			return args[i+1], i + 1
+		}
+		// --foo=bar
+		opt += "="
+		if strings.HasPrefix(args[i], opt) {
+			return (args[i])[len(opt):], i
+		}
 	}
-	// --foo=bar
-	opt += "="
-	if strings.HasPrefix(args[i], opt) {
-		return (args[i])[len(opt):], i
-	}
-	// -f bar
-	opt = "-" + short
-	if args[i] == opt && i < len(args)-1 {
-		return args[i+1], i + 1
-	}
-	// -fbar
-	if strings.HasPrefix(args[i], opt) && len(args[i]) > len(opt) {
-		return (args[i])[len(opt):], i
-	}
-	// --f=bar
-	opt += "="
-	if strings.HasPrefix(args[i], opt) {
-		return (args[i])[len(opt):], i
+	if short != "" {
+		// -f bar
+		opt := "-" + short
+		if args[i] == opt && i < len(args)-1 {
+			return args[i+1], i + 1
+		}
+		// -fbar
+		if strings.HasPrefix(args[i], opt) && len(args[i]) > len(opt) {
+			return (args[i])[len(opt):], i
+		}
+		// --f=bar
+		opt += "="
+		if strings.HasPrefix(args[i], opt) {
+			return (args[i])[len(opt):], i
+		}
 	}
 	return "", 0
 }

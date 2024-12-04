@@ -2,6 +2,15 @@ package distsrv
 
 import "net/http"
 
+type RegistryOpts struct {
+	OSType   string
+	ArchType string
+	Username string
+	Password string
+	TlsCert  string
+	TlsKey   string
+	CACert   string
+}
 type Registry struct {
 	ImgPull  ImagePull
 	Client   *http.Client
@@ -18,10 +27,9 @@ type Registry struct {
 // or docker.io/library/hello-world@sha256:...) into a 'PullRequest' struct. The url
 // MUST begin with a registry ref (e.g. quay.io) - it is not inferred.
 func NewRegistry(url string, os string, arch string, user string, pass string, scheme string) (Registry, error) {
-	if pr, err := NewImagePull(url); err != nil {
+	if pr, err := NewImagePull(url, scheme); err != nil {
 		return Registry{}, err
 	} else {
-		pr.WithScheme(scheme)
 		return Registry{
 			ImgPull:  pr,
 			Client:   &http.Client{},
