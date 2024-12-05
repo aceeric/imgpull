@@ -2,18 +2,17 @@ package main
 
 import (
 	"fmt"
-	"imgpull/distsrv"
-	"os"
+	"imgpull/pkg/imgpull"
 )
 
 // bin/imgpull docker.io/hello-world:latest ./hello-world.tar
 func main() {
-	opts, ok := distsrv.ParseArgs()
+	opts, ok := parseArgs()
 	if !ok {
-		distsrv.Usage()
-		os.Exit(1)
+		// does not return
+		showUsage()
 	}
-	r, err := distsrv.NewRegistry(distsrv.ToRegistryOpts(opts))
+	r, err := imgpull.NewRegistry(toRegistryOpts(opts))
 	if err != nil {
 		fmt.Println(err)
 		return
