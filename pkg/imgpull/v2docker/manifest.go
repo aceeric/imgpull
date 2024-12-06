@@ -6,15 +6,6 @@ type ManifestList struct {
 	Manifests     []Descriptor `json:"manifests"`
 }
 
-// type ManifestDescriptor struct {
-// 	MediaType   string            `json:"mediaType,omitempty"`
-// 	Digest      string            `json:"digest,omitempty"`
-// 	Size        int64             `json:"size,omitempty"`
-// 	URLs        []string          `json:"urls,omitempty"`
-// 	Annotations map[string]string `json:"annotations,omitempty"`
-// 	Platform    PlatformSpec      `json:"platform"`
-// }
-
 type PlatformSpec struct {
 	Architecture string   `json:"architecture"`
 	OS           string   `json:"os"`

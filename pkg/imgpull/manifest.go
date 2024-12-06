@@ -133,12 +133,12 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 	return "", fmt.Errorf("unable to get manifest SHA for os %s, arch %s", os, arch)
 }
 
-func (mh *ManifestHolder) NewDockerTarManifest(ip ImagePull) (DockerTarManifest, error) {
+func (mh *ManifestHolder) NewDockerTarManifest(ip ImagePull, namespace string) (DockerTarManifest, error) {
 	m := DockerTarManifest{}
 	switch mh.Type {
 	case V2dockerManifest:
 		m.Config = mh.V2dockerManifest.Config.Digest
-		m.RepoTags = []string{ip.ImageUrl()}
+		m.RepoTags = []string{ip.ImageUrl(namespace)}
 		for _, layer := range mh.V2dockerManifest.Layers {
 			if ext, err := ExtensionForLayer(layer.MediaType); err != nil {
 				return m, err
@@ -148,7 +148,7 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip ImagePull) (DockerTarManifest,
 		}
 	case V1ociManifest:
 		m.Config = mh.V1ociManifest.Config.Digest
-		m.RepoTags = []string{ip.ImageUrl()}
+		m.RepoTags = []string{ip.ImageUrl(namespace)}
 		for _, layer := range mh.V1ociManifest.Layers {
 			if ext, err := ExtensionForLayer(layer.MediaType); err != nil {
 				return m, err

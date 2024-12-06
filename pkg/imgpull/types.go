@@ -73,7 +73,11 @@ type ManifestHolder struct {
 	V2dockerManifest     v2docker.Manifest     `json:"v2.docker.Manifest"`
 }
 
-// Parent is a digest
+type ManifestHead struct {
+	MediaType string `json:"mediaType,omitempty"`
+	Digest    string `json:"digest,omitempty"`
+}
+
 type DockerTarManifest struct {
 	Config       string
 	RepoTags     []string

@@ -11,12 +11,14 @@ func main() {
 	if !ok {
 		showUsageAndExit()
 	}
-	// TODO consider establishing auth handshake upon creation...
 	r, err := imgpull.NewRegistry(toRegistryOpts(opts))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	// TEST
+	//mh, err := r.HeadManifest()
+	//fmt.Println(mh, err)
 	err = r.PullTar()
 	if err != nil {
 		fmt.Println(err)

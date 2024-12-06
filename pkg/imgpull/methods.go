@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-// TODO if NS then replace repotags!!!
-
 const (
 	mebibytes        = 1024 * 1024
 	maxManifestBytes = 100 * mebibytes
@@ -149,6 +147,37 @@ func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
 	}
 	mh, err := NewManifestHolder(ct, manifestBytes)
 	return mh, err
+}
+
+func (r *Registry) v2HeadManifests() (ManifestHead, error) {
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, r.ImgPull.Ref, r.nsQueryParm())
+	req, _ := http.NewRequest("HEAD", url, nil)
+	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
+	if r.hasAuth() {
+		req.Header.Set(r.authHdr())
+	}
+	resp, err := r.Client.Do(req)
+	if err != nil {
+		return ManifestHead{}, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return ManifestHead{}, fmt.Errorf("head manifests for %s failed. Status: %d", url, resp.StatusCode)
+	}
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	ct := resp.Header.Get("Content-Type")
+	if ct == "" {
+		return ManifestHead{}, fmt.Errorf("head manifests for %s did not return content type", url)
+	}
+	dcd := resp.Header.Get("Docker-Content-Digest")
+	if dcd == "" {
+		return ManifestHead{}, fmt.Errorf("head manifests for %s did not return digest", url)
+	}
+	return ManifestHead{
+		MediaType: ct,
+		Digest:    dcd,
+	}, nil
 }
 
 func getWwwAuthenticateHdrs(r *http.Response) []string {

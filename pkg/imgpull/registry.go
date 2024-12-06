@@ -2,6 +2,7 @@ package imgpull
 
 import "net/http"
 
+// globally todo for error messages should I imclude the url or leave that to the caller?
 type RegistryOpts struct {
 	Url       string
 	Scheme    string
@@ -17,11 +18,12 @@ type RegistryOpts struct {
 }
 
 type Registry struct {
-	Opts    RegistryOpts
-	ImgPull ImagePull
-	Client  *http.Client
-	Token   BearerToken
-	Basic   BasicAuth
+	Opts      RegistryOpts
+	ImgPull   ImagePull
+	Client    *http.Client
+	Token     BearerToken
+	Basic     BasicAuth
+	Connected bool
 }
 
 // NewRegistry initializes and returns a Registry struct from the passed options. Part

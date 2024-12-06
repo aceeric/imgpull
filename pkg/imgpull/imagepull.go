@@ -103,15 +103,19 @@ func NewImagePull(url, scheme string) (ImagePull, error) {
 
 // ImageUrl formats the ImagePull as an image reference like
 // 'quay.io/appzygy/ociregistry:1.5.0'
-func (ip *ImagePull) ImageUrl() string {
+func (ip *ImagePull) ImageUrl(namespace string) string {
 	separator := ":"
+	reg := ip.Registry
+	if namespace != "" {
+		reg = namespace
+	}
 	if strings.HasPrefix(ip.Ref, "sha256:") {
 		separator = "@"
 	}
 	if ip.Org == "" {
-		return fmt.Sprintf("%s/%s%s%s", ip.Registry, ip.Image, separator, ip.Ref)
+		return fmt.Sprintf("%s/%s%s%s", reg, ip.Image, separator, ip.Ref)
 	}
-	return fmt.Sprintf("%s/%s/%s%s%s", ip.Registry, ip.Org, ip.Image, separator, ip.Ref)
+	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, ip.Ref)
 }
 
 func (ip *ImagePull) RegistryUrl() string {
