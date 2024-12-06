@@ -12,8 +12,8 @@ const (
 	byDigest
 )
 
-// ImagePull parses the components of an image pull. If url is
-// `foo.io/bar/baz:1.2.3` then:
+// ImagePull has the components of an image pull. If 'raw' is
+// 'foo.io/bar/baz:1.2.3' then:
 //
 //	raw        := foo.io/bar/baz:v1.2.3
 //	PullType   := byTag
@@ -36,7 +36,7 @@ type ImagePull struct {
 }
 
 // NewImagePull parses the passed image url (e.g. docker.io/hello-world:latest,
-// or docker.io/library/hello-world@sha256:...) into a 'ImagePull' struct. The url
+// or docker.io/library/hello-world@sha256:...) into an 'ImagePull' struct. The url
 // MUST begin with a registry ref (e.g. quay.io) - it is not (and cannot be) inferred.
 func NewImagePull(url, scheme string) (ImagePull, error) {
 	org := ""
@@ -51,7 +51,6 @@ func NewImagePull(url, scheme string) (ImagePull, error) {
 	registry = parts[0]
 	server = parts[0]
 
-	// TODO CHANGED FROM registry-1 Mon 25th
 	if strings.ToLower(registry) == "docker.io" {
 		server = "registry.docker.io"
 	}
@@ -69,7 +68,10 @@ func NewImagePull(url, scheme string) (ImagePull, error) {
 	ref_separators := []struct {
 		separator string
 		pt        pullType
-	}{{separator: "@", pt: byDigest}, {separator: ":", pt: byTag}}
+	}{
+		{separator: "@", pt: byDigest},
+		{separator: ":", pt: byTag},
+	}
 
 	for _, rs := range ref_separators {
 		if strings.Contains(img, rs.separator) {

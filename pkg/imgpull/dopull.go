@@ -36,8 +36,7 @@ func (r *Registry) Pull(toPath string) (DockerTarManifest, error) {
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
-	// TODO add 200ish check to below
-	if slices.Contains(unauth, status) {
+	if status != http.StatusOK && slices.Contains(unauth, status) {
 		err := r.authenticate(auth)
 		if err != nil {
 			return DockerTarManifest{}, err
@@ -94,6 +93,20 @@ func (r *Registry) Pull(toPath string) (DockerTarManifest, error) {
 	return tm, nil
 }
 
+func (r *Registry) HeadManifest() {
+
+}
+
+// authenticate scans the passed list of auth headers received from a distribution
+// server and attempts to perform authentication for each in the following order:
+//
+//  1. bearer
+//  2. basic (using the user/pass that the registry instance was initialized from)
+//
+// If successful then the instance is initialized with the corresponding auth
+// struct which will be used for all other API calls to the distribution server.
+// For example if 'bearer' then the token received from the registry will be added
+// to the headers for all subsequent API calls after this.
 func (r *Registry) authenticate(auth []string) error {
 	fmt.Println(auth)
 	for _, hdr := range auth {
@@ -117,6 +130,8 @@ func saveManifest(mh ManifestHolder, toPath string, name string) error {
 	return saveFile([]byte(json), toPath, name)
 }
 
+// saveDockerTarManifest saves the docker tar manifest which is required to be in an
+// image tarball, i.e. a tarball that can be 'docker load'ed.
 func saveDockerTarManifest(tm DockerTarManifest, toPath string, name string) error {
 	// it has to be written as an array of []tarexport.manifestItem
 	manifestArray := make([]DockerTarManifest, 1)
@@ -128,6 +143,8 @@ func saveDockerTarManifest(tm DockerTarManifest, toPath string, name string) err
 	return saveFile(marshalled, toPath, name)
 }
 
+// saveFile saves the passed bytes to the passed path to a file with the passed
+// name.
 func saveFile(manifest []byte, toPath string, name string) error {
 	file, err := os.Create(filepath.Join(toPath, name))
 	if err != nil {

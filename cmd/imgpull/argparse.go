@@ -82,8 +82,8 @@ func parseArgs() (optMap, bool) {
 		certOpt:      {Name: certOpt, Short: "c", Long: "cert"},
 		keyOpt:       {Name: keyOpt, Short: "k", Long: "key"},
 		caOpt:        {Name: caOpt, Short: "x", Long: "cacert"},
-		versionOpt:   {Name: versionOpt, Short: "v", Long: "version", IsSwitch: true, Func: version},
-		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsage},
+		versionOpt:   {Name: versionOpt, Short: "v", Long: "version", IsSwitch: true, Func: showVersionAndExit},
+		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsageAndExit},
 	}
 	for i := 1; i < len(os.Args); i++ {
 		parsed := false
@@ -130,16 +130,17 @@ func parseArgs() (optMap, bool) {
 // 'RegistryOpts' struct.
 func toRegistryOpts(opts optMap) imgpull.RegistryOpts {
 	return imgpull.RegistryOpts{
-		Url:      opts.getVal(imageOpt),
-		Scheme:   opts.getVal(schemeOpt),
-		Dest:     opts.getVal(destOpt),
-		OSType:   opts.getVal(osOpt),
-		ArchType: opts.getVal(archOpt),
-		Username: opts.getVal(usernameOpt),
-		Password: opts.getVal(passwordOpt),
-		TlsCert:  opts.getVal(certOpt),
-		TlsKey:   opts.getVal(keyOpt),
-		CACert:   opts.getVal(caOpt),
+		Url:       opts.getVal(imageOpt),
+		Scheme:    opts.getVal(schemeOpt),
+		Dest:      opts.getVal(destOpt),
+		OSType:    opts.getVal(osOpt),
+		ArchType:  opts.getVal(archOpt),
+		Namespace: opts.getVal(namespaceOpt),
+		Username:  opts.getVal(usernameOpt),
+		Password:  opts.getVal(passwordOpt),
+		TlsCert:   opts.getVal(certOpt),
+		TlsKey:    opts.getVal(keyOpt),
+		CACert:    opts.getVal(caOpt),
 	}
 }
 
@@ -209,13 +210,16 @@ func (m optMap) getVal(n optName) string {
 	return m[n].Value
 }
 
-// showUsage prints usage instructions
-func showUsage() {
+// showUsageAndExit prints usage instructions and exits with a zero
+// error code.
+func showUsageAndExit() {
 	fmt.Println(usageText)
 	os.Exit(0)
 }
 
-func version() {
+// showVersionAndExit prints version info and exits with a zero
+// error code.
+func showVersionAndExit() {
 	fmt.Printf("imgpull version: %s build date: %s\n", buildVer, buildDtm)
 	os.Exit(0)
 }

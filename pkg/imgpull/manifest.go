@@ -96,6 +96,8 @@ func (mh *ManifestHolder) ToString() (string, error) {
 	return string(marshalled), err
 }
 
+// GetImageConfig gets the 'Config' layer from the instance manifest, or an error
+// if unable to do so.
 func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
 	layer := Layer{}
 	switch mh.Type {

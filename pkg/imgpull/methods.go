@@ -10,11 +10,12 @@ import (
 	"strings"
 )
 
+// TODO if NS then replace repotags!!!
+
 const (
-	kib           = 1024
-	mib           = 1024 * kib
-	manifestLimit = 100 * mib
-	maxBlobRead   = 100 * mib
+	mebibytes        = 1024 * 1024
+	maxManifestBytes = 100 * mebibytes
+	maxBlobBytes     = 100 * mebibytes
 )
 
 func (r *Registry) v2() (int, []string, error) {
@@ -76,7 +77,7 @@ func (r *Registry) v2Auth(ba BearerAuth) error {
 // /home/eace/projects/go-containerregistry/pkg/v1/remote/fetcher.go
 
 func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
-	url := fmt.Sprintf("%s/v2/%s/blobs/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, layer.Digest)
+	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, layer.Digest, r.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
 	if r.hasAuth() {
 		req.Header.Set(r.authHdr())
@@ -100,7 +101,7 @@ func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 
 	bytesRead := 0
 	for {
-		part, err := io.ReadAll(io.LimitReader(resp.Body, maxBlobRead))
+		part, err := io.ReadAll(io.LimitReader(resp.Body, maxBlobBytes))
 		if err != nil {
 			return err
 		}
@@ -125,7 +126,7 @@ func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
 	if digest != "" {
 		ref = digest
 	}
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, ref)
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, ref, r.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	if r.hasAuth() {
@@ -142,7 +143,7 @@ func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
 		defer resp.Body.Close()
 	}
 	ct := resp.Header.Get("Content-Type")
-	manifestBytes, err := io.ReadAll(io.LimitReader(resp.Body, manifestLimit))
+	manifestBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestBytes))
 	if err != nil {
 		return ManifestHolder{}, err
 	}

@@ -3,16 +3,17 @@ package imgpull
 import "net/http"
 
 type RegistryOpts struct {
-	Url      string
-	Scheme   string
-	Dest     string
-	OSType   string
-	ArchType string
-	Username string
-	Password string
-	TlsCert  string
-	TlsKey   string
-	CACert   string
+	Url       string
+	Scheme    string
+	Dest      string
+	OSType    string
+	ArchType  string
+	Username  string
+	Password  string
+	TlsCert   string
+	TlsKey    string
+	CACert    string
+	Namespace string
 }
 
 type Registry struct {
@@ -56,4 +57,12 @@ func (r *Registry) hasAuth() bool {
 		return true
 	}
 	return false
+}
+
+func (r *Registry) nsQueryParm() string {
+	if r.Opts.Namespace != "" {
+		return "?ns=" + r.Opts.Namespace
+	} else {
+		return ""
+	}
 }
