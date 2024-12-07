@@ -133,7 +133,7 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 	return "", fmt.Errorf("unable to get manifest SHA for os %s, arch %s", os, arch)
 }
 
-func (mh *ManifestHolder) NewDockerTarManifest(ip ImagePull, namespace string) (DockerTarManifest, error) {
+func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (DockerTarManifest, error) {
 	m := DockerTarManifest{}
 	switch mh.Type {
 	case V2dockerManifest:

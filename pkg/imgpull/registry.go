@@ -19,7 +19,7 @@ type RegistryOpts struct {
 
 type Registry struct {
 	Opts      RegistryOpts
-	ImgPull   ImagePull
+	ImgPull   ImageRef
 	Client    *http.Client
 	Token     BearerToken
 	Basic     BasicAuth
@@ -32,7 +32,7 @@ type Registry struct {
 // it is not inferred by the function.
 // TODO accept arch as x,y,z and parse to array
 func NewRegistry(o RegistryOpts) (Registry, error) {
-	if pr, err := NewImagePull(o.Url, o.Scheme); err != nil {
+	if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
 		return Registry{}, err
 	} else {
 		return Registry{

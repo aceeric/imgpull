@@ -12,7 +12,7 @@ const (
 	byDigest
 )
 
-// ImagePull has the components of an image pull. If 'raw' is
+// ImageRef has the components of an image reference. If 'raw' is
 // 'foo.io/bar/baz:1.2.3' then:
 //
 //	raw        := foo.io/bar/baz:v1.2.3
@@ -23,8 +23,8 @@ const (
 //	Org        := bar
 //	Image      := baz
 //	Ref        := v1.2.3
-type ImagePull struct {
-	raw        string
+type ImageRef struct {
+	Raw        string
 	PullType   pullType
 	Registry   string
 	Server     string
@@ -35,10 +35,10 @@ type ImagePull struct {
 	Scheme     string
 }
 
-// NewImagePull parses the passed image url (e.g. docker.io/hello-world:latest,
-// or docker.io/library/hello-world@sha256:...) into an 'ImagePull' struct. The url
+// NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
+// or docker.io/library/hello-world@sha256:...) into an 'ImageRef' struct. The url
 // MUST begin with a registry ref (e.g. quay.io) - it is not (and cannot be) inferred.
-func NewImagePull(url, scheme string) (ImagePull, error) {
+func NewImageRef(url, scheme string) (ImageRef, error) {
 	org := ""
 	img := ""
 	ref := ""
@@ -62,7 +62,7 @@ func NewImagePull(url, scheme string) (ImagePull, error) {
 		org = parts[1]
 		img = parts[2]
 	} else {
-		return ImagePull{}, fmt.Errorf("unable to parse image url: %s", url)
+		return ImageRef{}, fmt.Errorf("unable to parse image url: %s", url)
 	}
 
 	ref_separators := []struct {
@@ -85,11 +85,11 @@ func NewImagePull(url, scheme string) (ImagePull, error) {
 	}
 
 	if img == "" {
-		return ImagePull{}, fmt.Errorf("unable to parse image url: %s", url)
+		return ImageRef{}, fmt.Errorf("unable to parse image url: %s", url)
 	}
 
-	return ImagePull{
-		raw:        url,
+	return ImageRef{
+		Raw:        url,
 		PullType:   pt,
 		Registry:   registry,
 		Server:     server,
@@ -101,9 +101,13 @@ func NewImagePull(url, scheme string) (ImagePull, error) {
 	}, nil
 }
 
-// ImageUrl formats the ImagePull as an image reference like
-// 'quay.io/appzygy/ociregistry:1.5.0'
-func (ip *ImagePull) ImageUrl(namespace string) string {
+// ImageUrl returns the ImageRef receiver as an image reference suitable for a
+// 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'. If the namespace
+// arg is non-empty then it is appended as a query string. E.g. if the receiver has a
+// reference like 'localhost:8080/appzygy/ociregistry:1.5.0' and namepace is passed with
+// 'quay.io' then the function returns 'localhost:8080/appzygy/ociregistry:1.5.0?ns=quay.io'.
+// This supports pulling from pull-through registries.
+func (ip *ImageRef) ImageUrl(namespace string) string {
 	separator := ":"
 	reg := ip.Registry
 	if namespace != "" {
@@ -118,6 +122,10 @@ func (ip *ImagePull) ImageUrl(namespace string) string {
 	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, ip.Ref)
 }
 
-func (ip *ImagePull) RegistryUrl() string {
+// RegistryUrl handles the case where an image is pulled from docker.io but the package
+// has to access the DockerHub API on registry.docker.io so the receiver would have a
+// 'Registry' value of docker.io and a 'Server' value of registry.docker.io. So this
+// function is used whenver API calls are made.
+func (ip *ImageRef) RegistryUrl() string {
 	return fmt.Sprintf("%s://%s", ip.Scheme, ip.Server)
 }
