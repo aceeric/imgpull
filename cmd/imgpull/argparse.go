@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"imgpull/pkg/imgpull"
 	"os"
@@ -14,13 +15,13 @@ var (
 )
 
 // optName is a unique option name. E.g. if "--user" is a supported
-// cmdline option, then we would expect and optName "user".
+// cmdline option, then we would expect an optName "user".
 type optName string
 
 // opt defines a command line option. The Name is intended to be used as its
-// key in a map. Short and long are like -u and --user respectively. Value holds the
-// value parsed from the actual command line and Dflt is an optional default if
-// no value is provided on the cmdline.
+// key in a map. Short and long are intended as (for example) -u and --user
+// respectively. Value holds the value parsed from the actual command line and
+// 'Dflt' is an optional default if no value is provided on the cmdline.
 type opt struct {
 	Name     optName
 	Short    string
@@ -52,14 +53,14 @@ const (
 // optMap holds the parsed command line
 type optMap map[optName]opt
 
-var usageText = `
-Usage:
+var usageText = `Usage:
 
 imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
  [-u|--user username] [-p|--password password] [-s|--scheme scheme] [-c|--cert tls cert]
  [-k|--key tls key] [-x|--cacert tls ca cert] [-v|--version] [-h|--help]
 
-The image ref and tar file are required. OS and arch default to your system's values.
+The image ref and tar file are required. Everything else is optional. The OS and architecture
+default to your system's values.
 
 Example:
 
@@ -70,7 +71,7 @@ The example pulls the image for linux/amd64 to hello-world.tar in the working di
 
 // parseArgs parses and validates args, returning them in a map. The 'ToPullerOpts'
 // function can convert the returned map to a 'PullerOpts' struct.
-func parseArgs() (optMap, bool) {
+func parseArgs() (optMap, error) {
 	opts := optMap{
 		imageOpt:     {Name: imageOpt},
 		destOpt:      {Name: destOpt},
@@ -97,7 +98,7 @@ func parseArgs() (optMap, bool) {
 				}
 				if option.Value != "" {
 					// option specified twice
-					return opts, false
+					return opts, fmt.Errorf("option was specified more than once: %s", option.Name)
 				}
 				opts.setVal(option.Name, val)
 				i = newi
@@ -111,13 +112,13 @@ func parseArgs() (optMap, bool) {
 			} else if opts[destOpt].Value == "" {
 				opts.setVal(destOpt, os.Args[i])
 			} else {
-				return opts, false
+				return opts, fmt.Errorf("unable to parse command line option: %s", os.Args[i])
 			}
 		}
 	}
 	// need the image to pull and the tarball to save it to
 	if opts[imageOpt].Value == "" || opts[destOpt].Value == "" {
-		return opts, false
+		return opts, errors.New("command line is missing one or both of image reference and/or tarball to save to")
 	}
 	// apply any defaults if an override was not provided on the cmdline
 	for _, option := range opts {
@@ -125,7 +126,7 @@ func parseArgs() (optMap, bool) {
 			opts.setVal(option.Name, option.Dflt)
 		}
 	}
-	return opts, true
+	return opts, nil
 }
 
 // toPullerOpts returns the passed map containing parsed args in a

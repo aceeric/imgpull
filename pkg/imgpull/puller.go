@@ -18,7 +18,7 @@ type PullerOpts struct {
 
 type Puller struct {
 	Opts      PullerOpts
-	ImgPull   ImageRef
+	ImgRef    ImageRef
 	Client    *http.Client
 	Token     BearerToken
 	Basic     BasicAuth
@@ -34,11 +34,49 @@ func NewPuller(o PullerOpts) (Puller, error) {
 		return Puller{}, err
 	} else {
 		return Puller{
-			ImgPull: pr,
-			Client:  &http.Client{},
-			Opts:    o,
+			ImgRef: pr,
+			Client: &http.Client{},
+			Opts:   o,
 		}, nil
 	}
+}
+
+func (p *Puller) NewWith(newOpts PullerOpts) (Puller, error) {
+	o := p.Opts
+	if newOpts.Url != "" {
+		o.Url = newOpts.Url
+	}
+	if newOpts.Scheme != "" {
+		o.Scheme = newOpts.Scheme
+	}
+	if newOpts.Dest != "" {
+		o.Dest = newOpts.Dest
+	}
+	if newOpts.OSType != "" {
+		o.Dest = newOpts.Dest
+	}
+	if newOpts.ArchType != "" {
+		o.ArchType = newOpts.ArchType
+	}
+	if newOpts.Username != "" {
+		o.Username = newOpts.Username
+	}
+	if newOpts.Password != "" {
+		o.Password = newOpts.Password
+	}
+	if newOpts.TlsCert != "" {
+		o.TlsCert = newOpts.TlsCert
+	}
+	if newOpts.TlsKey != "" {
+		o.TlsKey = newOpts.TlsKey
+	}
+	if newOpts.CACert != "" {
+		o.CACert = newOpts.CACert
+	}
+	if newOpts.Namespace != "" {
+		o.Namespace = newOpts.Namespace
+	}
+	return NewPuller(o)
 }
 
 func (p *Puller) authHdr() (string, string) {

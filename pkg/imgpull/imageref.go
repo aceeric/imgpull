@@ -101,12 +101,15 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 	}, nil
 }
 
-// ImageUrl returns the ImageRef receiver as an image reference suitable for a
-// 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'. If the namespace
-// arg is non-empty then it is appended as a query string. E.g. if the receiver has a
-// reference like 'localhost:8080/appzygy/ociregistry:1.5.0' and namepace is passed with
-// 'quay.io' then the function returns 'localhost:8080/appzygy/ociregistry:1.5.0?ns=quay.io'.
-// This supports pulling from pull-through registries.
+// ImageUrl returns the ImageRef receiver as an image reference suitable for a 'docker pull'
+// command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'. If the namespace arg is non-empty then
+// the function replaces the registry configured in the receiver. E.g.: if the receiver has a
+// reference like 'localhost:8080/appzygy/ociregistry:1.5.0' and namespace is passed with
+// 'quay.io' then the function returns 'quay.io/appzygy/ociregistry:1.5.0'. This supports pulling
+// from pull-through registries. The intended purpose of this function is to allow an image
+// tarball to be pulled from a pull-through registry but have the 'RepoTags' field in the tarball
+// 'manifests.json' look as you would expect (ignores the fact that the image was pulled from a
+// pull-through registry.)
 func (ip *ImageRef) ImageUrl(namespace string) string {
 	separator := ":"
 	reg := ip.Registry
@@ -120,6 +123,15 @@ func (ip *ImageRef) ImageUrl(namespace string) string {
 		return fmt.Sprintf("%s/%s%s%s", reg, ip.Image, separator, ip.Ref)
 	}
 	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, ip.Ref)
+}
+
+func (ip *ImageRef) ImageUrlWithDigest(digest string) string {
+	separator := "@"
+	reg := ip.Registry
+	if ip.Org == "" {
+		return fmt.Sprintf("%s/%s%s%s", reg, ip.Image, separator, digest)
+	}
+	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, digest)
 }
 
 // RegistryUrl handles the case where an image is pulled from docker.io but the package

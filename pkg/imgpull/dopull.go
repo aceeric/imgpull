@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+// PullTar pulls an image tarball from the upstream based on the configuration
+// options in the receiver.
 func (p *Puller) PullTar() error {
 	tmpDir, err := os.MkdirTemp("/tmp", "imgpull.")
 	if err != nil {
@@ -20,7 +22,7 @@ func (p *Puller) PullTar() error {
 	defer func() {
 		err := os.Remove(tmpDir)
 		if err != nil {
-			// what can we do?
+			// what can be done
 		}
 	}()
 	if tm, err := p.Pull(tmpDir); err != nil {
@@ -30,6 +32,10 @@ func (p *Puller) PullTar() error {
 	}
 }
 
+// Pull pulls the image specified in the receiver to the passed 'toPath'. A
+// 'DockerTarManifest' is returned that describes the pulled image. This return
+// val can be provided to the 'toTar' function to create a tarball, just as
+// 'docker pull' would do.
 func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err := p.Connect(); err != nil {
 		return DockerTarManifest{}, err
@@ -61,16 +67,18 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
+	// get the config blob
 	if err := p.v2Blobs(configDigest, toPath, true); err != nil {
 		return DockerTarManifest{}, err
 	}
+	// get the layer blobs
 	for i := 0; i < mh.Layers(); i++ {
 		layer := mh.Layer(i)
 		if err := p.v2Blobs(layer, toPath, false); err != nil {
 			return DockerTarManifest{}, err
 		}
 	}
-	tm, err := mh.NewDockerTarManifest(p.ImgPull, p.Opts.Namespace)
+	tm, err := mh.NewDockerTarManifest(p.ImgRef, p.Opts.Namespace)
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
@@ -84,6 +92,20 @@ func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 		return ManifestDescriptor{}, err
 	}
 	return p.v2ManifestsHead()
+}
+
+func (p *Puller) GetManifest() (ManifestHolder, error) {
+	if err := p.Connect(); err != nil {
+		return ManifestHolder{}, err
+	}
+	return p.v2Manifests("")
+}
+
+func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
+	if err := p.Connect(); err != nil {
+		return ManifestHolder{}, err
+	}
+	return p.v2Manifests(digest)
 }
 
 func (p *Puller) Connect() error {
@@ -111,14 +133,13 @@ func (p *Puller) Connect() error {
 // server and attempts to perform authentication for each in the following order:
 //
 //  1. bearer
-//  2. basic (using the user/pass that the registry instance was initialized from)
+//  2. basic (using the user/pass that the puller receiver was initialized from)
 //
-// If successful then the instance is initialized with the corresponding auth
+// If successful then the receiver is initialized with the corresponding auth
 // struct so that it is available to be used for all subsequent API calls to the
 // distribution server. For example if 'bearer' then the token received from the
-// remote registry will be added to the instance.
+// remote registry will be added to the receiver.
 func (p *Puller) authenticate(auth []string) error {
-	fmt.Println(auth)
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			ba := parseBearer(hdr)
@@ -168,14 +189,17 @@ func saveFile(manifest []byte, toPath string, name string) error {
 }
 
 // parseBearer parses the passed auth header which the caller should ensure is a bearer
-// type www-authenticate header like 'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"'
-// and returns the parsed result in the 'BearerAuth' struct.
+// type "www-authenticate" header like:
+//
+//	Bearer realm="https://auth.docker.io/token",service="registry.docker.io"
+//
+// The function returns the parsed result in the 'BearerAuth' struct.
 func parseBearer(authHdr string) BearerAuth {
 	ba := BearerAuth{}
 	parts := []string{"realm", "service"}
-	mexpr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,]*)"{1}`
+	expr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,]*)"{1}`
 	for _, part := range parts {
-		srch := fmt.Sprintf(mexpr, part)
+		srch := fmt.Sprintf(expr, part)
 		m := regexp.MustCompile(srch)
 		matches := m.FindStringSubmatch(authHdr)
 		if len(matches) == 2 {

@@ -28,7 +28,7 @@ var allManifestTypes []string = []string{
 // calls the 'v2' endpoint which typically either returns OK or
 // unauthorized.
 func (p *Puller) v2() (int, []string, error) {
-	url := fmt.Sprintf("%s/v2/", p.ImgPull.RegistryUrl())
+	url := fmt.Sprintf("%s/v2/", p.ImgRef.RegistryUrl())
 	resp, err := p.Client.Head(url)
 	if resp != nil {
 		defer resp.Body.Close()
@@ -44,7 +44,7 @@ func (p *Puller) v2() (int, []string, error) {
 // the username and password encoded in the passed string. If successful, the
 // credentials are stored in the receiver for use on subsequent calls.
 func (p *Puller) v2Basic(encoded string) error {
-	url := fmt.Sprintf("%s/v2/", p.ImgPull.RegistryUrl())
+	url := fmt.Sprintf("%s/v2/", p.ImgRef.RegistryUrl())
 	req, _ := http.NewRequest("HEAD", url, nil)
 	req.Header.Set("Authorization", "Basic "+encoded)
 	resp, err := p.Client.Do(req)
@@ -65,7 +65,7 @@ func (p *Puller) v2Basic(encoded string) error {
 // realm and service. These are used to build the auth URL. The realm might be different
 // than the server that we have been requested to pull from.
 func (p *Puller) v2Auth(ba BearerAuth) error {
-	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, p.ImgPull.Repository, ba.Service)
+	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, p.ImgRef.Repository, ba.Service)
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := p.Client.Do(req)
 	if err != nil {
@@ -91,7 +91,7 @@ func (p *Puller) v2Auth(ba BearerAuth) error {
 // 'layer' arg. The blob is stored in the location specified by 'destPath'. The 'isConfig'
 // var indicates that the blob is a config blob.
 func (p *Puller) v2Blobs(layer Layer, destPath string, isConfig bool) error {
-	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", p.ImgPull.RegistryUrl(), p.ImgPull.Repository, layer.Digest, p.nsQueryParm())
+	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", p.ImgRef.RegistryUrl(), p.ImgRef.Repository, layer.Digest, p.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
 	if p.hasAuth() {
 		req.Header.Set(p.authHdr())
@@ -133,12 +133,14 @@ func (p *Puller) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 
 // v2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
+// If you pass an empty string in digest, the the GET will use the image url that was used to initialize
+// the Puller. (Probably used a tag.) If you provide a digest, the digest will override the tag.
 func (p *Puller) v2Manifests(digest string) (ManifestHolder, error) {
-	ref := p.ImgPull.Ref
+	ref := p.ImgRef.Ref
 	if digest != "" {
 		ref = digest
 	}
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", p.ImgPull.RegistryUrl(), p.ImgPull.Repository, ref, p.nsQueryParm())
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", p.ImgRef.RegistryUrl(), p.ImgRef.Repository, ref, p.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	if p.hasAuth() {
@@ -166,7 +168,7 @@ func (p *Puller) v2Manifests(digest string) (ManifestHolder, error) {
 // v2ManifestsHead is like v2Manifests but does a HEAD request. The result is returned in a
 // smaller struct with only media type, digest, and size (of manifest).
 func (p *Puller) v2ManifestsHead() (ManifestDescriptor, error) {
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", p.ImgPull.RegistryUrl(), p.ImgPull.Repository, p.ImgPull.Ref, p.nsQueryParm())
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", p.ImgRef.RegistryUrl(), p.ImgRef.Repository, p.ImgRef.Ref, p.nsQueryParm())
 	req, _ := http.NewRequest("HEAD", url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	if p.hasAuth() {

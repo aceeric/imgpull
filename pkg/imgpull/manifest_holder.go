@@ -41,7 +41,7 @@ type ManifestHolder struct {
 
 // NewManifestHolder initializes and returns a ManifestHolder struct for the passed
 // manifest bytes. The manifest bytes will be deserialized into one of the four manifest
-// variables based on type.
+// variables based on the 'mediaType' arg.
 func NewManifestHolder(mediaType string, bytes []byte) (ManifestHolder, error) {
 	mt := ToManifestType(mediaType)
 	if mt == Undefined {
@@ -74,7 +74,7 @@ func ToManifestType(mediaType string) ManifestType {
 	}
 }
 
-// UnMarshalManifest unmarshals the passed bytes and stores the typed manifest struct
+// UnMarshalManifest unmarshals the passed bytes and stores the resulting typed manifest struct
 // in the corresponding manifest variable in the receiver struct.
 func (mh *ManifestHolder) UnMarshalManifest(mt ManifestType, bytes []byte) error {
 	var err error
@@ -94,7 +94,7 @@ func (mh *ManifestHolder) UnMarshalManifest(mt ManifestType, bytes []byte) error
 }
 
 // IsManifestList returns true of the manifest held by the ManifestHolder
-// receiver is a manifest list (rather than an image manifest.)
+// receiver is a manifest list (not an image manifest.)
 func (mh *ManifestHolder) IsManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
@@ -112,9 +112,10 @@ func (mh *ManifestHolder) Layers() int {
 	}
 }
 
-// Layer gets the passed layer from the manifest embeded in the ManifestHolder receciver.
+// Layer gets the passed layer from the manifest embedded in the ManifestHolder receciver.
 // An empty layer is returned if the index is out of bounds, or the holder is not holding
-// an image manifest.
+// an image manifest. Returning an error as well makes iterating hard so - an empty layer
+// means the function has been mis-used.
 func (mh *ManifestHolder) Layer(idx int) Layer {
 	layer := Layer{}
 	switch mh.Type {
@@ -190,6 +191,8 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 	return "", fmt.Errorf("unable to get manifest SHA for os %s, arch %s", os, arch)
 }
 
+// NewDockerTarManifest creates a 'DockerTarManifest' from the passed image ref. It supports
+// pull-though by virtue of the 'namespace' arg.
 func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (DockerTarManifest, error) {
 	m := DockerTarManifest{}
 	switch mh.Type {
