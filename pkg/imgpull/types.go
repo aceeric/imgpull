@@ -19,6 +19,8 @@ const (
 	V1ociLayerZstdMt       = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
+// BearerAuth has the two parts of a bearer auth header that we need to
+// request a bearer token from an OCI distribution server.
 type BearerAuth struct {
 	Realm   string
 	Service string
@@ -32,6 +34,8 @@ type BasicAuth struct {
 	Encoded string `json:"encoded"`
 }
 
+// ManifestDescriptor has the information returned from a v2 manifests
+// HEAD request to an OCI distribution server.
 type ManifestDescriptor struct {
 	MediaType string `json:"mediaType,omitempty"`
 	Digest    string `json:"digest,omitempty"`
@@ -39,7 +43,7 @@ type ManifestDescriptor struct {
 }
 
 // DockerTarManifest is the structure of 'manifest.json' that you would find
-// in a tarball produced by 'docker pull'.
+// in a tarball produced by 'docker save'.
 type DockerTarManifest struct {
 	Config       string                         `json:"config"`
 	RepoTags     []string                       `json:"repoTags"`
@@ -51,7 +55,9 @@ type DockerTarManifest struct {
 // layer. Since the Descriptor is a different type for Docker vs OCI, the other
 // option was to embed the original struct here and then have getters based on
 // type but that seemed overly complex based on the simple need to just use this
-// to carry a layer digest.
+// to carry a layer digest. This is the same information as the ManifestDescriptor
+// struct but since it really is derived from a layer, it is represented as
+// a separate struct.
 type Layer struct {
 	MediaType string `json:"mediaType"`
 	Digest    string `json:"digest"`

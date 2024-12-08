@@ -57,7 +57,7 @@ var usageText = `Usage:
 
 imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
  [-u|--user username] [-p|--password password] [-s|--scheme scheme] [-c|--cert tls cert]
- [-k|--key tls key] [-x|--cacert tls ca cert] [-v|--version] [-h|--help]
+ [-k|--key tls key] [-x|--cacert tls ca cert] [--parsed] [-v|--version] [-h|--help]
 
 The image ref and tar file are required. Everything else is optional. The OS and architecture
 default to your system's values.
@@ -97,7 +97,6 @@ func parseArgs() (optMap, error) {
 					option.Func(opts)
 				}
 				if option.Value != "" {
-					// option specified twice
 					return opts, fmt.Errorf("option was specified more than once: %s", option.Name)
 				}
 				opts.setVal(option.Name, val)

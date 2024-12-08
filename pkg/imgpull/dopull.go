@@ -25,17 +25,17 @@ func (p *Puller) PullTar() error {
 			// what can be done
 		}
 	}()
-	if tm, err := p.Pull(tmpDir); err != nil {
+	if dtm, err := p.Pull(tmpDir); err != nil {
 		return err
 	} else {
-		return toTar(tm, p.Opts.Dest, tmpDir)
+		return toTar(dtm, p.Opts.Dest, tmpDir)
 	}
 }
 
 // Pull pulls the image specified in the receiver to the passed 'toPath'. A
 // 'DockerTarManifest' is returned that describes the pulled image. This return
 // val can be provided to the 'toTar' function to create a tarball, just as
-// 'docker pull' would do.
+// 'docker save' would do.
 func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err := p.Connect(); err != nil {
 		return DockerTarManifest{}, err

@@ -6,4 +6,3 @@ arg parse errors
 all errors print the image ref?
 visibility - upper lower etc
 tls
-variadic initializer

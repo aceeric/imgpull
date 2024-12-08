@@ -11,7 +11,7 @@ func main() {
 		fmt.Println(err)
 		showUsageAndExit(nil)
 	}
-	p, err := imgpull.NewPuller(toPullerOpts(opts))
+	p, err := imgpull.NewPullerWith(toPullerOpts(opts))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -55,7 +55,7 @@ func granular(p imgpull.Puller) {
 			Dest: "/tmp/frobozz.tar",
 		}
 		// assign to outer 'p'
-		p, err = p.NewWith(opts)
+		p, err = p.NewPullerFrom(opts)
 		if err != nil {
 			fmt.Println(err)
 			return

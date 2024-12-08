@@ -25,11 +25,25 @@ type Puller struct {
 	Connected bool
 }
 
-// NewPuller initializes and returns a Puller struct from the passed options. Part
-// of that involves parsing and validing the 'Url' member of the options, for example
-// docker.io/hello-world@latest). The url MUST begin with a registry ref (e.g. quay.io) -
-// it is not inferred by the function.
-func NewPuller(o PullerOpts) (Puller, error) {
+type PullOpt func(*PullerOpts)
+
+// NewPuller creates a Puller from the passed url and any additional options
+// from the opts variadic list. Example: The puller defaults to https. Suppose
+// you need to pull from an http registry instead. Then:
+//
+//	http := func() PullOpt {
+//		return func(p *PullerOpts) {
+//			p.Scheme = "http"
+//		}
+//	}
+//	p, err := NewPuller("docker.io/hello-world:latest", http())
+func NewPuller(url string, opts ...PullOpt) (Puller, error) {
+	o := PullerOpts{
+		Url: url,
+	}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
 		return Puller{}, err
 	} else {
@@ -41,7 +55,25 @@ func NewPuller(o PullerOpts) (Puller, error) {
 	}
 }
 
-func (p *Puller) NewWith(newOpts PullerOpts) (Puller, error) {
+// NewPullerWith initializes and returns a Puller from the passed options. Part of
+// that involves parsing and validing the 'Url' member of the options, for example
+// docker.io/hello-world@latest). The url MUST begin with a registry ref (e.g. quay.io) -
+// it is not inferred by the function.
+func NewPullerWith(o PullerOpts) (Puller, error) {
+	if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
+		return Puller{}, err
+	} else {
+		return Puller{
+			ImgRef: pr,
+			Client: &http.Client{},
+			Opts:   o,
+		}, nil
+	}
+}
+
+// NewPullerFrom creates a new puller from the receiver with overrides applied
+// from the the passed PullerOpts. The receiver is unmodified.
+func (p *Puller) NewPullerFrom(newOpts PullerOpts) (Puller, error) {
 	o := p.Opts
 	if newOpts.Url != "" {
 		o.Url = newOpts.Url
@@ -76,7 +108,7 @@ func (p *Puller) NewWith(newOpts PullerOpts) (Puller, error) {
 	if newOpts.Namespace != "" {
 		o.Namespace = newOpts.Namespace
 	}
-	return NewPuller(o)
+	return NewPullerWith(o)
 }
 
 func (p *Puller) authHdr() (string, string) {
