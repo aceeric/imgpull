@@ -1,7 +1,5 @@
 package imgpull
 
-// TODO HIDE ALL FUNCTIONS EXCEPT API!
-
 import (
 	"encoding/base64"
 	"encoding/json"
@@ -9,14 +7,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 )
 
-// unauth has the HTTP status codes that we will interpret as un-authorized
-var unauth []int = []int{http.StatusUnauthorized, http.StatusForbidden}
-
-func (r *Registry) PullTar() error {
+func (p *Puller) PullTar() error {
 	tmpDir, err := os.MkdirTemp("/tmp", "imgpull.")
 	if err != nil {
 		return err
@@ -27,18 +23,18 @@ func (r *Registry) PullTar() error {
 			// what can we do?
 		}
 	}()
-	if tm, err := r.Pull(tmpDir); err != nil {
+	if tm, err := p.Pull(tmpDir); err != nil {
 		return err
 	} else {
-		return toTar(tm, r.Opts.Dest, tmpDir)
+		return toTar(tm, p.Opts.Dest, tmpDir)
 	}
 }
 
-func (r *Registry) Pull(toPath string) (DockerTarManifest, error) {
-	if err := r.Connect(); err != nil {
+func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
+	if err := p.Connect(); err != nil {
 		return DockerTarManifest{}, err
 	}
-	mh, err := r.v2Manifests("")
+	mh, err := p.v2Manifests("")
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
@@ -47,11 +43,11 @@ func (r *Registry) Pull(toPath string) (DockerTarManifest, error) {
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
-		digest, err := mh.GetImageDigestFor(r.Opts.OSType, r.Opts.ArchType)
+		digest, err := mh.GetImageDigestFor(p.Opts.OSType, p.Opts.ArchType)
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
-		im, err := r.v2Manifests(digest)
+		im, err := p.v2Manifests(digest)
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
@@ -65,22 +61,16 @@ func (r *Registry) Pull(toPath string) (DockerTarManifest, error) {
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
-	if err := r.v2Blobs(configDigest, toPath, true); err != nil {
+	if err := p.v2Blobs(configDigest, toPath, true); err != nil {
 		return DockerTarManifest{}, err
 	}
-	for {
-		layer, err := mh.NextLayer()
-		if err != nil {
-			return DockerTarManifest{}, err
-		}
-		if layer == (Layer{}) {
-			break
-		}
-		if err := r.v2Blobs(layer, toPath, false); err != nil {
+	for i := 0; i < mh.Layers(); i++ {
+		layer := mh.Layer(i)
+		if err := p.v2Blobs(layer, toPath, false); err != nil {
 			return DockerTarManifest{}, err
 		}
 	}
-	tm, err := mh.NewDockerTarManifest(r.ImgPull, r.Opts.Namespace)
+	tm, err := mh.NewDockerTarManifest(p.ImgPull, p.Opts.Namespace)
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
@@ -89,37 +79,31 @@ func (r *Registry) Pull(toPath string) (DockerTarManifest, error) {
 	return tm, nil
 }
 
-// IT IS REASONABLE TO HEAD AND GET WITH THE SAME REGISTRY!!
-func (r *Registry) HeadManifest() (ManifestHead, error) {
-	if err := r.Connect(); err != nil {
-		return ManifestHead{}, err
+func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
+	if err := p.Connect(); err != nil {
+		return ManifestDescriptor{}, err
 	}
-	return r.v2HeadManifests()
+	return p.v2ManifestsHead()
 }
 
-// TODO connecting with one url means the token is wired to that URL !!!!!!
-// THATS OK the registry is single-use!! IT isn't something to connect to a registry
-// and then use for multiple pulls thats why the term REGISTRY is misleading !!!!!
-// TODO group all implementations of (r *Registry) in one file ? or sub-packages??
-//
-//	pkg/imgpull/registry.go
-//	pkg/imgpull/dopull.go
-//	pkg/imgpull/methods.go
-func (r *Registry) Connect() error {
-	if r.Connected {
+func (p *Puller) Connect() error {
+	// HTTP status codes that we will interpret as un-authorized
+	unauth := []int{http.StatusUnauthorized, http.StatusForbidden}
+
+	if p.Connected {
 		return nil
 	}
-	status, auth, err := r.v2()
+	status, auth, err := p.v2()
 	if err != nil {
 		return err
 	}
 	if status != http.StatusOK && slices.Contains(unauth, status) {
-		err := r.authenticate(auth)
+		err := p.authenticate(auth)
 		if err != nil {
 			return err
 		}
 	}
-	r.Connected = true
+	p.Connected = true
 	return nil
 }
 
@@ -133,16 +117,16 @@ func (r *Registry) Connect() error {
 // struct so that it is available to be used for all subsequent API calls to the
 // distribution server. For example if 'bearer' then the token received from the
 // remote registry will be added to the instance.
-func (r *Registry) authenticate(auth []string) error {
+func (p *Puller) authenticate(auth []string) error {
 	fmt.Println(auth)
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
-			ba := ParseBearer(hdr)
-			return r.v2Auth(ba)
+			ba := parseBearer(hdr)
+			return p.v2Auth(ba)
 		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
-			delimited := fmt.Sprintf("%s:%s", r.Opts.Username, r.Opts.Password)
+			delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
 			encoded := base64.StdEncoding.EncodeToString([]byte(delimited))
-			return r.v2Basic(encoded)
+			return p.v2Basic(encoded)
 		}
 	}
 	return fmt.Errorf("unable to parse auth param: %v", auth)
@@ -181,4 +165,26 @@ func saveFile(manifest []byte, toPath string, name string) error {
 	defer file.Close()
 	file.Write(manifest)
 	return nil
+}
+
+// parseBearer parses the passed auth header which the caller should ensure is a bearer
+// type www-authenticate header like 'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"'
+// and returns the parsed result in the 'BearerAuth' struct.
+func parseBearer(authHdr string) BearerAuth {
+	ba := BearerAuth{}
+	parts := []string{"realm", "service"}
+	mexpr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,]*)"{1}`
+	for _, part := range parts {
+		srch := fmt.Sprintf(mexpr, part)
+		m := regexp.MustCompile(srch)
+		matches := m.FindStringSubmatch(authHdr)
+		if len(matches) == 2 {
+			if part == "realm" {
+				ba.Realm = strings.ReplaceAll(matches[1], "\"", "")
+			} else {
+				ba.Service = strings.ReplaceAll(matches[1], "\"", "")
+			}
+		}
+	}
+	return ba
 }

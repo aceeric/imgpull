@@ -1,9 +1,8 @@
 
 create locks on blob files
 check of blob file already exists
-temp dir cleanup
 configurable locations for interim files
-rename distsrv package to /pkg which is expected since this is a "library"
-namespace ?docker.io
 arg parse errors
-rename Registry to something else - Puller ??
+all errors print the image ref?
+visibility - upper lower etc
+

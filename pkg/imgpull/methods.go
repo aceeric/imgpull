@@ -16,9 +16,20 @@ const (
 	maxBlobBytes     = 100 * mebibytes
 )
 
-func (r *Registry) v2() (int, []string, error) {
-	url := fmt.Sprintf("%s/v2/", r.ImgPull.RegistryUrl())
-	resp, err := r.Client.Head(url)
+// allManifestTypes lists all of the manifest types that this package
+// will operate on.
+var allManifestTypes []string = []string{
+	V2dockerManifestListMt,
+	V2dockerManifestMt,
+	V1ociIndexMt,
+	V1ociManifestMt,
+}
+
+// calls the 'v2' endpoint which typically either returns OK or
+// unauthorized.
+func (p *Puller) v2() (int, []string, error) {
+	url := fmt.Sprintf("%s/v2/", p.ImgPull.RegistryUrl())
+	resp, err := p.Client.Head(url)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -29,11 +40,14 @@ func (r *Registry) v2() (int, []string, error) {
 	return resp.StatusCode, auth, err
 }
 
-func (r *Registry) v2Basic(encoded string) error {
-	url := fmt.Sprintf("%s/v2/", r.ImgPull.RegistryUrl())
+// v2Basic calls the 'v2' endpoint with a basic auth header formed from
+// the username and password encoded in the passed string. If successful, the
+// credentials are stored in the receiver for use on subsequent calls.
+func (p *Puller) v2Basic(encoded string) error {
+	url := fmt.Sprintf("%s/v2/", p.ImgPull.RegistryUrl())
 	req, _ := http.NewRequest("HEAD", url, nil)
 	req.Header.Set("Authorization", "Basic "+encoded)
-	resp, err := r.Client.Do(req)
+	resp, err := p.Client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -43,15 +57,17 @@ func (r *Registry) v2Basic(encoded string) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("basic auth returned status code %d", resp.StatusCode)
 	}
-	r.Basic = BasicAuth{Encoded: encoded}
+	p.Basic = BasicAuth{Encoded: encoded}
 	return nil
 }
 
-// Bearer realm="https://quay.io/v2/auth",service="quay.io"
-func (r *Registry) v2Auth(ba BearerAuth) error {
-	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, r.ImgPull.Repository, ba.Service)
+// v2Auth calls the 'v2/auth' endpoint with the passed bearer struct which has
+// realm and service. These are used to build the auth URL. The realm might be different
+// than the server that we have been requested to pull from.
+func (p *Puller) v2Auth(ba BearerAuth) error {
+	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, p.ImgPull.Repository, ba.Service)
 	req, _ := http.NewRequest("GET", url, nil)
-	resp, err := r.Client.Do(req)
+	resp, err := p.Client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -67,20 +83,20 @@ func (r *Registry) v2Auth(ba BearerAuth) error {
 	if err != nil {
 		return err
 	}
-	r.Token = token
+	p.Token = token
 	return nil
 }
 
-// TODO for manifests and blobs check size and digest against expected as in
-// /home/eace/projects/go-containerregistry/pkg/v1/remote/fetcher.go
-
-func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
-	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, layer.Digest, r.nsQueryParm())
+// v2Blobs calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the passed
+// 'layer' arg. The blob is stored in the location specified by 'destPath'. The 'isConfig'
+// var indicates that the blob is a config blob.
+func (p *Puller) v2Blobs(layer Layer, destPath string, isConfig bool) error {
+	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", p.ImgPull.RegistryUrl(), p.ImgPull.Repository, layer.Digest, p.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
-	if r.hasAuth() {
-		req.Header.Set(r.authHdr())
+	if p.hasAuth() {
+		req.Header.Set(p.authHdr())
 	}
-	resp, err := r.Client.Do(req)
+	resp, err := p.Client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -115,22 +131,20 @@ func (r *Registry) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 	return nil
 }
 
-// TODO NEED HEAD REQUEST EVENTUALLY FOR COMPAT W/ CONTAINER REGISTRY TO REPLACE CRANE
-// TODO /home/eace/projects/go-containerregistry/pkg/v1/remote/fetcher.go
-// returns descriptor with digest, size, and media type
-
-func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
-	ref := r.ImgPull.Ref
+// v2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
+// a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
+func (p *Puller) v2Manifests(digest string) (ManifestHolder, error) {
+	ref := p.ImgPull.Ref
 	if digest != "" {
 		ref = digest
 	}
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, ref, r.nsQueryParm())
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", p.ImgPull.RegistryUrl(), p.ImgPull.Repository, ref, p.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
-	if r.hasAuth() {
-		req.Header.Set(r.authHdr())
+	if p.hasAuth() {
+		req.Header.Set(p.authHdr())
 	}
-	resp, err := r.Client.Do(req)
+	resp, err := p.Client.Do(req)
 	if err != nil {
 		return ManifestHolder{}, err
 	}
@@ -140,46 +154,51 @@ func (r *Registry) v2Manifests(digest string) (ManifestHolder, error) {
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	ct := resp.Header.Get("Content-Type")
+	mediaType := resp.Header.Get("Content-Type")
 	manifestBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestBytes))
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	mh, err := NewManifestHolder(ct, manifestBytes)
+	mh, err := NewManifestHolder(mediaType, manifestBytes)
 	return mh, err
 }
 
-func (r *Registry) v2HeadManifests() (ManifestHead, error) {
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", r.ImgPull.RegistryUrl(), r.ImgPull.Repository, r.ImgPull.Ref, r.nsQueryParm())
+// v2ManifestsHead is like v2Manifests but does a HEAD request. The result is returned in a
+// smaller struct with only media type, digest, and size (of manifest).
+func (p *Puller) v2ManifestsHead() (ManifestDescriptor, error) {
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", p.ImgPull.RegistryUrl(), p.ImgPull.Repository, p.ImgPull.Ref, p.nsQueryParm())
 	req, _ := http.NewRequest("HEAD", url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
-	if r.hasAuth() {
-		req.Header.Set(r.authHdr())
+	if p.hasAuth() {
+		req.Header.Set(p.authHdr())
 	}
-	resp, err := r.Client.Do(req)
+	resp, err := p.Client.Do(req)
 	if err != nil {
-		return ManifestHead{}, err
+		return ManifestDescriptor{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ManifestHead{}, fmt.Errorf("head manifests for %s failed. Status: %d", url, resp.StatusCode)
+		return ManifestDescriptor{}, fmt.Errorf("head manifests for %s failed. Status: %d", url, resp.StatusCode)
 	}
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	ct := resp.Header.Get("Content-Type")
-	if ct == "" {
-		return ManifestHead{}, fmt.Errorf("head manifests for %s did not return content type", url)
+	mediaType := resp.Header.Get("Content-Type")
+	if mediaType == "" {
+		return ManifestDescriptor{}, fmt.Errorf("head manifests for %s did not return content type", url)
 	}
-	dcd := resp.Header.Get("Docker-Content-Digest")
-	if dcd == "" {
-		return ManifestHead{}, fmt.Errorf("head manifests for %s did not return digest", url)
+	digest := resp.Header.Get("Docker-Content-Digest")
+	if digest == "" {
+		return ManifestDescriptor{}, fmt.Errorf("head manifests for %s did not return digest", url)
 	}
-	return ManifestHead{
-		MediaType: ct,
-		Digest:    dcd,
+	return ManifestDescriptor{
+		MediaType: mediaType,
+		Digest:    digest,
+		Size:      int(resp.ContentLength),
 	}, nil
 }
 
+// getWwwAuthenticateHdrs gets all "www-authenticate" headers from
+// the passed response.
 func getWwwAuthenticateHdrs(r *http.Response) []string {
 	hdrs := []string{}
 	for key, vals := range r.Header {

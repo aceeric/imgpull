@@ -13,8 +13,8 @@ var (
 	buildDtm string = "SET BY MAKE FILE"
 )
 
-// optName is a unique option name. Such as "user", if "--user" is
-// a supported option.
+// optName is a unique option name. E.g. if "--user" is a supported
+// cmdline option, then we would expect and optName "user".
 type optName string
 
 // opt defines a command line option. The Name is intended to be used as its
@@ -28,7 +28,7 @@ type opt struct {
 	Value    string
 	Dflt     string
 	IsSwitch bool
-	Func     func()
+	Func     func(optMap)
 }
 
 // All the supported options
@@ -46,6 +46,7 @@ const (
 	caOpt        optName = "cacert"
 	versionOpt   optName = "version"
 	helpOpt      optName = "help"
+	parsedOpt    optName = "parsed"
 )
 
 // optMap holds the parsed command line
@@ -67,8 +68,8 @@ imgpull docker.io/hello-world:latest ./hello-world.tar -o linux -a amd64
 The example pulls the image for linux/amd64 to hello-world.tar in the working directory.
 `
 
-// parseArgs parses and validates args, returning them in a map. The 'ToRegistryOpts'
-// function can convert the returned map to a 'RegistryOpts' struct.
+// parseArgs parses and validates args, returning them in a map. The 'ToPullerOpts'
+// function can convert the returned map to a 'PullerOpts' struct.
 func parseArgs() (optMap, bool) {
 	opts := optMap{
 		imageOpt:     {Name: imageOpt},
@@ -84,6 +85,7 @@ func parseArgs() (optMap, bool) {
 		caOpt:        {Name: caOpt, Short: "x", Long: "cacert"},
 		versionOpt:   {Name: versionOpt, Short: "v", Long: "version", IsSwitch: true, Func: showVersionAndExit},
 		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsageAndExit},
+		parsedOpt:    {Name: parsedOpt, Long: "parsed", IsSwitch: true, Func: showParsedAndExit},
 	}
 	for i := 1; i < len(os.Args); i++ {
 		parsed := false
@@ -91,13 +93,13 @@ func parseArgs() (optMap, bool) {
 			val, newi := getval(option.Short, option.Long, option.IsSwitch, os.Args, i)
 			if val != "" {
 				if option.Func != nil {
-					option.Func()
+					option.Func(opts)
 				}
 				if option.Value != "" {
 					// option specified twice
 					return opts, false
 				}
-				setVal(opts, option.Name, val)
+				opts.setVal(option.Name, val)
 				i = newi
 				parsed = true
 				break
@@ -105,9 +107,9 @@ func parseArgs() (optMap, bool) {
 		}
 		if !parsed {
 			if opts[imageOpt].Value == "" {
-				setVal(opts, imageOpt, os.Args[i])
+				opts.setVal(imageOpt, os.Args[i])
 			} else if opts[destOpt].Value == "" {
-				setVal(opts, destOpt, os.Args[i])
+				opts.setVal(destOpt, os.Args[i])
 			} else {
 				return opts, false
 			}
@@ -120,16 +122,16 @@ func parseArgs() (optMap, bool) {
 	// apply any defaults if an override was not provided on the cmdline
 	for _, option := range opts {
 		if option.Value == "" && option.Dflt != "" {
-			setVal(opts, option.Name, option.Dflt)
+			opts.setVal(option.Name, option.Dflt)
 		}
 	}
 	return opts, true
 }
 
-// toRegistryOpts returns the passed map containing parsed args in a
-// 'RegistryOpts' struct.
-func toRegistryOpts(opts optMap) imgpull.RegistryOpts {
-	return imgpull.RegistryOpts{
+// toPullerOpts returns the passed map containing parsed args in a
+// 'PullerOpts' struct.
+func toPullerOpts(opts optMap) imgpull.PullerOpts {
+	return imgpull.PullerOpts{
 		Url:       opts.getVal(imageOpt),
 		Scheme:    opts.getVal(schemeOpt),
 		Dest:      opts.getVal(destOpt),
@@ -153,6 +155,8 @@ func toRegistryOpts(opts optMap) imgpull.RegistryOpts {
 //	-f bar
 //	-fbar
 //	-f=bar
+//
+// Compound short opts (such as -fabc) are not supported at this time.
 func getval(short, long string, isswitch bool, args []string, i int) (string, int) {
 	if short == "" && long == "" {
 		// positional param
@@ -199,27 +203,36 @@ func getval(short, long string, isswitch bool, args []string, i int) (string, in
 
 // setVal sets the value for the entry in the options map of the passed
 // name
-func setVal(opts map[optName]opt, name optName, value string) {
-	opt := opts[name]
+func (m *optMap) setVal(name optName, value string) {
+	opt := (*m)[name]
 	opt.Value = value
-	opts[name] = opt
+	(*m)[name] = opt
 }
 
 // getVal gets the named value from the options map
-func (m optMap) getVal(n optName) string {
-	return m[n].Value
+func (m *optMap) getVal(name optName) string {
+	return (*m)[name].Value
 }
 
 // showUsageAndExit prints usage instructions and exits with a zero
 // error code.
-func showUsageAndExit() {
+func showUsageAndExit(opts optMap) {
 	fmt.Println(usageText)
 	os.Exit(0)
 }
 
 // showVersionAndExit prints version info and exits with a zero
 // error code.
-func showVersionAndExit() {
+func showVersionAndExit(opts optMap) {
 	fmt.Printf("imgpull version: %s build date: %s\n", buildVer, buildDtm)
+	os.Exit(0)
+}
+
+// showParsedAndExit is a debug function that dumps the options map to the console
+// in kind of ugly format for troubleshooting.
+func showParsedAndExit(opts optMap) {
+	for name, opt := range opts {
+		fmt.Printf("%s: %+v\n", name, opt)
+	}
 	os.Exit(0)
 }

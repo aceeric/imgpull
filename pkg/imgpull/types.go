@@ -1,8 +1,6 @@
 package imgpull
 
 import (
-	"fmt"
-	"imgpull/pkg/imgpull/v1oci"
 	"imgpull/pkg/imgpull/v2docker"
 )
 
@@ -21,32 +19,6 @@ const (
 	V1ociLayerZstdMt       = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
-type ManifestType int
-
-const (
-	Undefined ManifestType = iota
-	V2dockerManifestList
-	V2dockerManifest
-	V1ociIndex
-	//V1ociDescriptor
-	V1ociManifest
-)
-
-var ManifestTypeToString = map[ManifestType]string{
-	Undefined:            "Undefined",
-	V2dockerManifestList: "V2dockerManifestList",
-	V2dockerManifest:     "V2dockerManifest",
-	V1ociIndex:           "V1ociIndex",
-	V1ociManifest:        "V1ociManifest",
-}
-
-var allManifestTypes []string = []string{
-	V2dockerManifestListMt,
-	V2dockerManifestMt,
-	V1ociIndexMt,
-	V1ociManifestMt,
-}
-
 type BearerAuth struct {
 	Realm   string
 	Service string
@@ -60,50 +32,28 @@ type BasicAuth struct {
 	Encoded string `json:"encoded"`
 }
 
-type ManifestHolder struct {
-	Type                 ManifestType          `json:"type"`
-	CurBlob              int                   `json:"curBlob"`
-	ImageUrl             string                `json:"imageUrl"`
-	MediaType            string                `json:"mediaType"`
-	Digest               string                `json:"digest"`
-	Size                 int                   `json:"size"`
-	V1ociIndex           v1oci.Index           `json:"v1.oci.index"`
-	V1ociManifest        v1oci.Manifest        `json:"v1.oci.manifest"`
-	V2dockerManifestList v2docker.ManifestList `json:"v2.docker.manifestList"`
-	V2dockerManifest     v2docker.Manifest     `json:"v2.docker.Manifest"`
-}
-
-type ManifestHead struct {
+type ManifestDescriptor struct {
 	MediaType string `json:"mediaType,omitempty"`
 	Digest    string `json:"digest,omitempty"`
+	Size      int    `json:"size"`
 }
 
+// DockerTarManifest is the structure of 'manifest.json' that you would find
+// in a tarball produced by 'docker pull'.
 type DockerTarManifest struct {
-	Config       string
-	RepoTags     []string
-	Layers       []string
+	Config       string                         `json:"config"`
+	RepoTags     []string                       `json:"repoTags"`
+	Layers       []string                       `json:"layers"`
 	LayerSources map[string]v2docker.Descriptor `json:",omitempty"`
 }
 
+// Layer has the parts of the 'Descriptor' struct that minimally describe a
+// layer. Since the Descriptor is a different type for Docker vs OCI, the other
+// option was to embed the original struct here and then have getters based on
+// type but that seemed overly complex based on the simple need to just use this
+// to carry a layer digest.
 type Layer struct {
 	MediaType string `json:"mediaType"`
 	Digest    string `json:"digest"`
 	Size      int    `json:"size"`
-}
-
-func IsImageManifest(mediaType string) bool {
-	return mediaType != V2dockerManifestListMt &&
-		mediaType != V1ociIndexMt
-}
-
-func ExtensionForLayer(mediaType string) (string, error) {
-	switch mediaType {
-	case V1ociLayerMt, V2dockerLayerMt:
-		return ".tar", nil
-	case "", V2dockerLayerGzipMt, V1ociLayerGzipMt:
-		return ".tar.gz", nil
-	case V2dockerLayerZstdMt, V1ociLayerZstdMt:
-		return ".tar.zstd", nil
-	}
-	return "", fmt.Errorf("unsupported layer media type: %s", mediaType)
 }

@@ -5,13 +5,12 @@ import (
 	"imgpull/pkg/imgpull"
 )
 
-// bin/imgpull docker.io/hello-world:latest ./hello-world.tar
 func main() {
 	opts, ok := parseArgs()
 	if !ok {
-		showUsageAndExit()
+		showUsageAndExit(nil)
 	}
-	r, err := imgpull.NewRegistry(toRegistryOpts(opts))
+	r, err := imgpull.NewPuller(toPullerOpts(opts))
 	if err != nil {
 		fmt.Println(err)
 		return
