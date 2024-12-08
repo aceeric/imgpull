@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/opencontainers/go-digest"
 )
 
 const (
@@ -135,10 +137,10 @@ func (p *Puller) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
 // If you pass an empty string in digest, the the GET will use the image url that was used to initialize
 // the Puller. (Probably used a tag.) If you provide a digest, the digest will override the tag.
-func (p *Puller) v2Manifests(digest string) (ManifestHolder, error) {
+func (p *Puller) v2Manifests(sha string) (ManifestHolder, error) {
 	ref := p.ImgRef.Ref
-	if digest != "" {
-		ref = digest
+	if sha != "" {
+		ref = sha
 	}
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", p.ImgRef.RegistryUrl(), p.ImgRef.Repository, ref, p.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
@@ -160,6 +162,13 @@ func (p *Puller) v2Manifests(digest string) (ManifestHolder, error) {
 	manifestBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestBytes))
 	if err != nil {
 		return ManifestHolder{}, err
+	}
+	expDigest := resp.Header.Get("Docker-Content-Digest")
+	if expDigest != "" {
+		actDigest := digest.FromBytes(manifestBytes).Hex()
+		if actDigest != digestFrom(expDigest) {
+			return ManifestHolder{}, fmt.Errorf("digest mismatch for %s", ref)
+		}
 	}
 	mh, err := NewManifestHolder(mediaType, manifestBytes)
 	return mh, err
