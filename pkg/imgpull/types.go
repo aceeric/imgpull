@@ -1,9 +1,5 @@
 package imgpull
 
-import (
-	"imgpull/pkg/imgpull/v2docker"
-)
-
 const (
 	V2dockerManifestListMt = "application/vnd.docker.distribution.manifest.list.v2+json"
 	V2dockerManifestMt     = "application/vnd.docker.distribution.manifest.v2+json"
@@ -42,17 +38,8 @@ type ManifestDescriptor struct {
 	Size      int    `json:"size"`
 }
 
-// DockerTarManifest is the structure of 'manifest.json' that you would find
-// in a tarball produced by 'docker save'.
-type DockerTarManifest struct {
-	Config       string                         `json:"config"`
-	RepoTags     []string                       `json:"repoTags"`
-	Layers       []string                       `json:"layers"`
-	LayerSources map[string]v2docker.Descriptor `json:",omitempty"`
-}
-
 // Layer has the parts of the 'Descriptor' struct that minimally describe a
-// layer. Since the Descriptor is a different type for Docker vs OCI, the other
+// layer. Since the Descriptor is a different type for Docker vs OCI with overlap, the other
 // option was to embed the original struct here and then have getters based on
 // type but that seemed overly complex based on the simple need to just use this
 // to carry a layer digest. This is the same information as the ManifestDescriptor

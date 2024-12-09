@@ -2,17 +2,15 @@ package imgpull
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 )
 
-// PullTar pulls an image tarball from the upstream based on the configuration
+// PullTar pulls an image tarball from a registry based on the configuration
 // options in the receiver.
 func (p *Puller) PullTar() error {
 	tmpDir, err := os.MkdirTemp("/tmp", "imgpull.")
@@ -28,7 +26,7 @@ func (p *Puller) PullTar() error {
 	if dtm, err := p.Pull(tmpDir); err != nil {
 		return err
 	} else {
-		return toTar(dtm, p.Opts.Dest, tmpDir)
+		return dtm.toTar(p.Opts.Dest, tmpDir)
 	}
 }
 
@@ -36,6 +34,11 @@ func (p *Puller) PullTar() error {
 // 'DockerTarManifest' is returned that describes the pulled image. This return
 // val can be provided to the 'toTar' function to create a tarball, just as
 // 'docker save' would do.
+//
+// The directory specfied by'toPath' will be populated with the image list
+// manifest for the URL, the image manifest, the docker TAR manifest, and
+// the blobs, including the configuration blob. In other words everything needed
+// to create a tarball that looks like a 'docker save' tarball.
 func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err := p.Connect(); err != nil {
 		return DockerTarManifest{}, err
@@ -67,26 +70,28 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
-	// get the config blob
+	// get the config blob to the file system
 	if err := p.v2Blobs(configDigest, toPath, true); err != nil {
 		return DockerTarManifest{}, err
 	}
-	// get the layer blobs
-	for i := 0; i < mh.Layers(); i++ {
-		layer := mh.Layer(i)
+	// get the layer blobs to the file system
+	for _, layer := range mh.Layers() {
 		if err := p.v2Blobs(layer, toPath, false); err != nil {
 			return DockerTarManifest{}, err
 		}
 	}
-	tm, err := mh.NewDockerTarManifest(p.ImgRef, p.Opts.Namespace)
+	dtm, err := mh.NewDockerTarManifest(p.ImgRef, p.Opts.Namespace)
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
-	saveDockerTarManifest(tm, toPath, "manifest.json")
+	dtm.saveDockerTarManifest(toPath, "manifest.json")
 
-	return tm, nil
+	return dtm, nil
 }
 
+// HeadManifest does a HEAD requests for the image URL in the receiver. The
+// 'ManifestDescriptor' returned to the caller contains the image digest,
+// media type and manifest size.
 func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestDescriptor{}, err
@@ -94,6 +99,12 @@ func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 	return p.v2ManifestsHead()
 }
 
+// GetManifest gets a manifest for the image in the receiver. If the receiver
+// is configured with a tag then the manifest returned is determined by the
+// registry. If an image list manifest is available, it will be provided by
+// the registry. If no image list manifest is available then an image manifest
+// will be provided by the registry. Whatever the registry provides is returned
+// in a 'ManifestHolder' which holds all four supported manifest types.
 func (p *Puller) GetManifest() (ManifestHolder, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestHolder{}, err
@@ -101,6 +112,10 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	return p.v2Manifests("")
 }
 
+// GetManifestByDigest gets an image manifest by digest. Basically when building
+// the API url it replaces the tag in the receiver with the passed digest. This
+// function always returns an image manifest if one is available matching the
+// passed digest.
 func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestHolder{}, err
@@ -108,6 +123,12 @@ func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
 	return p.v2Manifests(digest)
 }
 
+// Connect calls the 'v2' endpoint and looks for an auth header. If an auth
+// header is provided by the remote registry then this function will attempt
+// to negotiate the auth handshake for Bearer if the remote requests it, or
+// Basic using the user/pass in the receiver. Once successfully authenticated,
+// the auth credential (bearer token or encrypted user/pass) are retained in
+// the receiver for all the other API methods to build an auth header with.
 func (p *Puller) Connect() error {
 	// HTTP status codes that we will interpret as un-authorized
 	unauth := []int{http.StatusUnauthorized, http.StatusForbidden}
@@ -161,31 +182,6 @@ func saveManifest(mh ManifestHolder, toPath string, name string) error {
 		return err
 	}
 	return saveFile([]byte(json), toPath, name)
-}
-
-// saveDockerTarManifest saves the passed docker tar manifest which is required to be contained in
-// an image tarball, i.e. a tarball that can be loaded with 'docker load'.
-func saveDockerTarManifest(tm DockerTarManifest, toPath string, name string) error {
-	// it has to be written as an array of []tarexport.manifestItem
-	manifestArray := make([]DockerTarManifest, 1)
-	manifestArray[0] = tm
-	marshalled, err := json.MarshalIndent(manifestArray, "", "   ")
-	if err != nil {
-		return err
-	}
-	return saveFile(marshalled, toPath, name)
-}
-
-// saveFile is a low level util function that saves the passed bytes
-// to a file with the passed name in the passed path.
-func saveFile(manifest []byte, toPath string, name string) error {
-	file, err := os.Create(filepath.Join(toPath, name))
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	file.Write(manifest)
-	return nil
 }
 
 // parseBearer parses the passed auth header which the caller should ensure is a bearer

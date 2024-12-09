@@ -37,7 +37,8 @@ type ImageRef struct {
 
 // NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
 // or docker.io/library/hello-world@sha256:...) into an 'ImageRef' struct. The url
-// MUST begin with a registry ref (e.g. quay.io) - it is not (and cannot be) inferred.
+// MUST begin with a registry hostname (e.g. quay.io) - it is not (and cannot be)
+// inferred.
 func NewImageRef(url, scheme string) (ImageRef, error) {
 	org := ""
 	img := ""
@@ -52,6 +53,7 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 	server = parts[0]
 
 	if strings.ToLower(registry) == "docker.io" {
+		// can't make API calls to docker.io
 		server = "registry.docker.io"
 	}
 

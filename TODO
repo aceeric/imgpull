@@ -1,8 +1,10 @@
 
+totar.go > tar.go and put ALL tar-related funcs there
+tls
+validate OS and ARCH - /home/eace/projects/ociv1-image-spec/schema/validator.go
 create locks on blob files
 check of blob file already exists
 configurable locations for interim files
-arg parse errors
-all errors print the image ref?
+all errors print the image ref - minimall review all errors
 visibility - upper lower etc
-tls
+everything to receivers???

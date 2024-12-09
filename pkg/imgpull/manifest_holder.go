@@ -99,40 +99,29 @@ func (mh *ManifestHolder) IsManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
 
-// Layers returns the count of layers in the manifest held by the ManifestHolder
-// receiver.
-func (mh *ManifestHolder) Layers() int {
+func (mh *ManifestHolder) Layers() []Layer {
+	layers := make([]Layer, 0)
 	switch mh.Type {
 	case V2dockerManifest:
-		return len(mh.V2dockerManifest.Layers)
-	case V1ociManifest:
-		return len(mh.V1ociManifest.Layers)
-	default:
-		return 0
-	}
-}
-
-// Layer gets the passed layer from the manifest embedded in the ManifestHolder receciver.
-// An empty layer is returned if the index is out of bounds, or the holder is not holding
-// an image manifest. Returning an error as well makes iterating hard so - an empty layer
-// means the function has been mis-used.
-func (mh *ManifestHolder) Layer(idx int) Layer {
-	layer := Layer{}
-	switch mh.Type {
-	case V2dockerManifest:
-		if idx >= 0 && idx < len(mh.V2dockerManifest.Layers) {
-			layer.Digest = mh.V2dockerManifest.Layers[idx].Digest
-			layer.MediaType = mh.V2dockerManifest.Layers[idx].MediaType
-			layer.Size = int(mh.V2dockerManifest.Layers[idx].Size)
+		for _, l := range mh.V2dockerManifest.Layers {
+			nl := Layer{
+				Digest:    l.Digest,
+				MediaType: l.MediaType,
+				Size:      int(l.Size),
+			}
+			layers = append(layers, nl)
 		}
 	case V1ociManifest:
-		if idx >= 0 && idx < len(mh.V1ociManifest.Layers) {
-			layer.Digest = mh.V1ociManifest.Layers[idx].Digest
-			layer.MediaType = mh.V1ociManifest.Layers[idx].MediaType
-			layer.Size = int(mh.V1ociManifest.Layers[idx].Size)
+		for _, l := range mh.V1ociManifest.Layers {
+			nl := Layer{
+				Digest:    l.Digest,
+				MediaType: l.MediaType,
+				Size:      int(l.Size),
+			}
+			layers = append(layers, nl)
 		}
 	}
-	return layer
+	return layers
 }
 
 // ToString marshalls the manifest held by the ManifestHolder receiver. Only the
@@ -194,35 +183,35 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 // NewDockerTarManifest creates a 'DockerTarManifest' from the passed image ref. It supports
 // pull-though by virtue of the 'namespace' arg.
 func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (DockerTarManifest, error) {
-	m := DockerTarManifest{}
+	dtm := DockerTarManifest{}
 	switch mh.Type {
 	case V2dockerManifest:
-		m.Config = mh.V2dockerManifest.Config.Digest
-		m.RepoTags = []string{ip.ImageUrl(namespace)}
+		dtm.Config = mh.V2dockerManifest.Config.Digest
+		dtm.RepoTags = []string{ip.ImageUrl(namespace)}
 		for _, layer := range mh.V2dockerManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
-				return m, err
+				return dtm, err
 			} else {
-				m.Layers = append(m.Layers, layer.Digest+ext)
+				dtm.Layers = append(dtm.Layers, layer.Digest+ext)
 			}
 		}
 	case V1ociManifest:
-		m.Config = mh.V1ociManifest.Config.Digest
-		m.RepoTags = []string{ip.ImageUrl(namespace)}
+		dtm.Config = mh.V1ociManifest.Config.Digest
+		dtm.RepoTags = []string{ip.ImageUrl(namespace)}
 		for _, layer := range mh.V1ociManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
-				return m, err
+				return dtm, err
 			} else {
-				m.Layers = append(m.Layers, layer.Digest+ext)
+				dtm.Layers = append(dtm.Layers, layer.Digest+ext)
 			}
 		}
 	default:
-		return m, fmt.Errorf("can't create docker tar manifest from this kind of manifest: %s", manifestTypeToString[mh.Type])
+		return dtm, fmt.Errorf("can't create docker tar manifest from this kind of manifest: %s", manifestTypeToString[mh.Type])
 	}
-	for idx, layer := range m.Layers {
-		m.Layers[idx] = strings.Replace(layer, "sha256:", "", -1)
+	for idx, layer := range dtm.Layers {
+		dtm.Layers[idx] = strings.Replace(layer, "sha256:", "", -1)
 	}
-	return m, nil
+	return dtm, nil
 }
 
 // extensionForLayer returns '.tar', '.tar.gz', or '.tar.zstd' based on the

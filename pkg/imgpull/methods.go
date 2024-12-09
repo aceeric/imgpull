@@ -135,8 +135,8 @@ func (p *Puller) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 
 // v2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
-// If you pass an empty string in digest, the the GET will use the image url that was used to initialize
-// the Puller. (Probably used a tag.) If you provide a digest, the digest will override the tag.
+// If you pass an empty string in 'sha', the the GET will use the image url that was used to initialize
+// the Puller. (Probably used a tag.) If you provide a digest in 'sha', the digest will override the tag.
 func (p *Puller) v2Manifests(sha string) (ManifestHolder, error) {
 	ref := p.ImgRef.Ref
 	if sha != "" {

@@ -1,6 +1,9 @@
 package imgpull
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 type PullerOpts struct {
 	Url       string
@@ -44,15 +47,19 @@ func NewPuller(url string, opts ...PullOpt) (Puller, error) {
 	for _, opt := range opts {
 		opt(&o)
 	}
-	if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
-		return Puller{}, err
-	} else {
-		return Puller{
-			ImgRef: pr,
-			Client: &http.Client{},
-			Opts:   o,
-		}, nil
-	}
+	return NewPullerWith(o)
+	//if !checkPlatform(o.OSType, o.ArchType) {
+	//	return Puller{}, fmt.Errorf("operating system %q and/or architecture %q are not valid", o.OSType, o.ArchType)
+	//}
+	//if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
+	//	return Puller{}, err
+	//} else {
+	//	return Puller{
+	//		ImgRef: pr,
+	//		Client: &http.Client{},
+	//		Opts:   o,
+	//	}, nil
+	//}
 }
 
 // NewPullerWith initializes and returns a Puller from the passed options. Part of
@@ -60,6 +67,9 @@ func NewPuller(url string, opts ...PullOpt) (Puller, error) {
 // docker.io/hello-world@latest). The url MUST begin with a registry ref (e.g. quay.io) -
 // it is not inferred by the function.
 func NewPullerWith(o PullerOpts) (Puller, error) {
+	if !checkPlatform(o.OSType, o.ArchType) {
+		return Puller{}, fmt.Errorf("operating system %q and/or architecture %q are not valid", o.OSType, o.ArchType)
+	}
 	if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
 		return Puller{}, err
 	} else {
@@ -135,4 +145,29 @@ func (p *Puller) nsQueryParm() string {
 	} else {
 		return ""
 	}
+}
+
+func checkPlatform(OS string, Architecture string) bool {
+	validCombins := map[string][]string{
+		"android":   {"arm"},
+		"darwin":    {"386", "amd64", "arm", "arm64"},
+		"dragonfly": {"amd64"},
+		"freebsd":   {"386", "amd64", "arm"},
+		"linux":     {"386", "amd64", "arm", "arm64", "ppc64", "ppc64le", "mips64", "mips64le", "s390x", "riscv64"},
+		"netbsd":    {"386", "amd64", "arm"},
+		"openbsd":   {"386", "amd64", "arm"},
+		"plan9":     {"386", "amd64"},
+		"solaris":   {"amd64"},
+		"windows":   {"386", "amd64"}}
+	for os, archs := range validCombins {
+		if os == OS {
+			for _, arch := range archs {
+				if arch == Architecture {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	return false
 }
