@@ -91,7 +91,8 @@ func (p *Puller) v2Auth(ba BearerAuth) error {
 
 // v2Blobs calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the passed
 // 'layer' arg. The blob is stored in the location specified by 'destPath'. The 'isConfig'
-// var indicates that the blob is a config blob.
+// var indicates that the blob is a config blob. Objects are stored with their digest as the file
+// name.
 func (p *Puller) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", p.ImgRef.RegistryUrl(), p.ImgRef.Repository, layer.Digest, p.nsQueryParm())
 	req, _ := http.NewRequest("GET", url, nil)
@@ -135,8 +136,8 @@ func (p *Puller) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 
 // v2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
-// If you pass an empty string in 'sha', the the GET will use the image url that was used to initialize
-// the Puller. (Probably used a tag.) If you provide a digest in 'sha', the digest will override the tag.
+// If you pass an empty string in 'sha', then the GET will use the image url that was used to initialize
+// the Puller. (Probably a tag.) If you provide a digest in 'sha', the digest will override the tag.
 func (p *Puller) v2Manifests(sha string) (ManifestHolder, error) {
 	ref := p.ImgRef.Ref
 	if sha != "" {

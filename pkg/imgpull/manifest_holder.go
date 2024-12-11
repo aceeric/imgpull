@@ -99,6 +99,8 @@ func (mh *ManifestHolder) IsManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
 
+// Layers returns an array of 'Layer' for the manifest container by the ManifestHolder
+// receiver.
 func (mh *ManifestHolder) Layers() []Layer {
 	layers := make([]Layer, 0)
 	switch mh.Type {
@@ -162,6 +164,9 @@ func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
 	return layer, nil
 }
 
+// GetImageDigestFor looks in the manifest list in the receiver for a manifest in the list
+// matching the passed OS and architecture and if found returns it. Otherwise an error is
+// returned.
 func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, error) {
 	switch mh.Type {
 	case V2dockerManifestList:

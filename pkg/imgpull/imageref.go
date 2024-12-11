@@ -12,27 +12,29 @@ const (
 	byDigest
 )
 
-// ImageRef has the components of an image reference. If 'raw' is
-// 'foo.io/bar/baz:1.2.3' then:
-//
-//	raw        := foo.io/bar/baz:v1.2.3
-//	PullType   := byTag
-//	Registry   := foo.io
-//	Server     := foo.io
-//	Repository := bar/baz
-//	Org        := bar
-//	Image      := baz
-//	Ref        := v1.2.3
+// ImageRef has the components of an image reference. Documentation for
+// the individual fields shows how the struct would be initialized if
+// NewImageRef was called with url='foo.io/bar/baz:1.2.3', and scheme =
+// https.
 type ImageRef struct {
-	Raw        string
-	PullType   pullType
-	Registry   string
-	Server     string
+	// foo.io/bar/baz:v1.2.3
+	Raw string
+	// 'byTag'
+	PullType pullType
+	//	foo.io
+	Registry string
+	//	foo.io
+	Server string
+	//	bar/baz
 	Repository string
-	Org        string
-	Image      string
-	Ref        string
-	Scheme     string
+	//	bar
+	Org string
+	//	baz
+	Image string
+	//	v1.2.3
+	Ref string
+	//	https
+	Scheme string
 }
 
 // NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
@@ -103,15 +105,18 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 	}, nil
 }
 
-// ImageUrl returns the ImageRef receiver as an image reference suitable for a 'docker pull'
-// command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'. If the namespace arg is non-empty then
-// the function replaces the registry configured in the receiver. E.g.: if the receiver has a
-// reference like 'localhost:8080/appzygy/ociregistry:1.5.0' and namespace is passed with
-// 'quay.io' then the function returns 'quay.io/appzygy/ociregistry:1.5.0'. This supports pulling
-// from pull-through registries. The intended purpose of this function is to allow an image
-// tarball to be pulled from a pull-through registry but have the 'RepoTags' field in the tarball
-// 'manifests.json' look as you would expect (ignores the fact that the image was pulled from a
-// pull-through registry.)
+// ImageUrl returns the ImageRef receiver URL-related content as an image reference suitable for
+// a 'docker pull' command. E.g.: 'docker pull quay.io/appzygy/ociregistry:1.5.0'.
+//
+// If the namespace arg is non-empty then the function replaces the registry configured in the
+// receiver. E.g.: if the receiver has a reference like 'localhost:8080/appzygy/ociregistry:1.5.0'
+// and namespace is passed with 'quay.io' then the function returns
+// 'quay.io/appzygy/ociregistry:1.5.0'.
+//
+// This supports pulling from pull-through registries. The intended purpose of this function
+// is to allow an image tarball to be pulled from a pull-through registry but have the
+// 'RepoTags' field in the tarball 'manifests.json' look like it was pulled from the registry
+// in the namespace rather than from a pull-through registry.
 func (ip *ImageRef) ImageUrl(namespace string) string {
 	separator := ":"
 	reg := ip.Registry

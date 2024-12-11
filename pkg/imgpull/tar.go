@@ -52,8 +52,8 @@ func (dtm *DockerTarManifest) saveDockerTarManifest(toPath string, name string) 
 	return saveFile(marshalled, toPath, name)
 }
 
-// addFile adds a file identified by the passed 'fileName' which must be a fqpn
-// to the passed tar file.
+// addFile adds a file identified by the passed 'fileName' to the
+// passed tar file.
 func addFile(tw *tar.Writer, fileName string) error {
 	file, err := os.Open(fileName)
 	if err != nil {

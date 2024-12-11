@@ -42,6 +42,9 @@ func (p *Puller) PullTar() error {
 // manifest for the URL, the image manifest, the docker TAR manifest, and
 // the blobs, including the configuration blob. In other words everything needed
 // to create a tarball that looks like a 'docker save' tarball.
+//
+// The image list manifest and the image manifest don't get belog in the
+// image tarball but they are included in case the caller wants them.
 func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err := p.Connect(); err != nil {
 		return DockerTarManifest{}, err
@@ -92,9 +95,10 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	return dtm, nil
 }
 
-// HeadManifest does a HEAD requests for the image URL in the receiver. The
+// HeadManifest does a HEAD request for the image URL in the receiver. The
 // 'ManifestDescriptor' returned to the caller contains the image digest,
-// media type and manifest size.
+// media type and manifest size, as provided by the upstream distribution
+// server.
 func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestDescriptor{}, err
@@ -104,10 +108,10 @@ func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 
 // GetManifest gets a manifest for the image in the receiver. If the receiver
 // is configured with a tag then the manifest returned is determined by the
-// registry. If an image list manifest is available, it will be provided by
+// upstream registry: if an image list manifest is available, it will be provided by
 // the registry. If no image list manifest is available then an image manifest
-// will be provided by the registry. Whatever the registry provides is returned
-// in a 'ManifestHolder' which holds all four supported manifest types.
+// will be provided by the registry if available. Whatever the registry provides
+// is returned in a 'ManifestHolder' which holds all four supported manifest types.
 func (p *Puller) GetManifest() (ManifestHolder, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestHolder{}, err
