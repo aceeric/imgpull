@@ -8,3 +8,6 @@ configurable locations for interim files
 all errors print the image ref - minimall review all errors
 visibility - upper lower etc
 everything to receivers???
+%q in errors
+logging
+unit tests - run /home/eace/projects/docker-distribution/registry/root.go

@@ -3,31 +3,60 @@ package imgpull
 import (
 	"fmt"
 	"net/http"
+	"slices"
 )
 
+// PullerOpts defines all the configurable behaviors of the puller.
 type PullerOpts struct {
-	Url       string
-	Scheme    string
-	Dest      string
-	OSType    string
-	ArchType  string
-	Username  string
-	Password  string
-	TlsCert   string
-	TlsKey    string
-	CACert    string
+	// Url is the image url like 'docker.io/hello-world:latest'.
+	Url string
+	// Scheme is 'http' or 'https'.
+	Scheme string
+	// Dest is the absolute or relative path and filename to save the
+	// image tarfile to.
+	Dest string
+	// OSType is the operating system type, e.g.: 'linux'.
+	OSType string
+	// OSType is the architectire, e.g.: 'amd64'.
+	ArchType string
+	// Username is the user name for basic auth.
+	Username string
+	// Username is the password for basic auth.
+	Password string
+	// TlsCert is the client pki certificate for mTLS.
+	TlsCert string
+	// TlsKey is the client pki key for mTLS.
+	TlsKey string
+	// CACert is the client CA if the host truststore cannot verify the
+	// server cert.
+	CACert string
+	// Namespace supports pull-through, i.e. pull 'localhost:5000/hello-world:latest'
+	// with namespace 'docker.io' to pull through localhost to dockerhub if you
+	// have a pull-through registry that supports that.
 	Namespace string
 }
 
+// Puller is everything that is needed to pull an OCI image from an upstream
+// OCI distribution server.
 type Puller struct {
-	Opts      PullerOpts
-	ImgRef    ImageRef
-	Client    *http.Client
-	Token     BearerToken
-	Basic     BasicAuth
+	// Opts defines all the configurable behaviors of the puller.
+	Opts PullerOpts
+	// ImgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
+	ImgRef ImageRef
+	// Client is the HTTP client
+	Client *http.Client
+	// If the upstream requires bearer auth, this is the token received from
+	// the upstream registry
+	Token BearerToken
+	// If the upstream requires basic auth, this is the encoded user/pass
+	// from 'Opts'
+	Basic BasicAuth
+	// Indicates that the struct has been used to negotiate a connection to
+	// the upstream OCI distribution server.
 	Connected bool
 }
 
+// PullOpt supports creating a puller with variadic args.
 type PullOpt func(*PullerOpts)
 
 // NewPuller creates a Puller from the passed url and any additional options
@@ -39,7 +68,7 @@ type PullOpt func(*PullerOpts)
 //			p.Scheme = "http"
 //		}
 //	}
-//	p, err := NewPuller("docker.io/hello-world:latest", http())
+//	p, err := NewPuller("my.http.registry:5000/hello-world:latest", http())
 func NewPuller(url string, opts ...PullOpt) (Puller, error) {
 	o := PullerOpts{
 		Url: url,
@@ -48,18 +77,6 @@ func NewPuller(url string, opts ...PullOpt) (Puller, error) {
 		opt(&o)
 	}
 	return NewPullerWith(o)
-	//if !checkPlatform(o.OSType, o.ArchType) {
-	//	return Puller{}, fmt.Errorf("operating system %q and/or architecture %q are not valid", o.OSType, o.ArchType)
-	//}
-	//if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
-	//	return Puller{}, err
-	//} else {
-	//	return Puller{
-	//		ImgRef: pr,
-	//		Client: &http.Client{},
-	//		Opts:   o,
-	//	}, nil
-	//}
 }
 
 // NewPullerWith initializes and returns a Puller from the passed options. Part of
@@ -121,6 +138,8 @@ func (p *Puller) NewPullerFrom(newOpts PullerOpts) (Puller, error) {
 	return NewPullerWith(o)
 }
 
+// authHdr returns a key/value pair to set an auth header based on whether
+// the receiver is configured for bearer or basic auth.
 func (p *Puller) authHdr() (string, string) {
 	if p.Token != (BearerToken{}) {
 		return "Authorization", "Bearer " + p.Token.Token
@@ -130,6 +149,7 @@ func (p *Puller) authHdr() (string, string) {
 	return "", ""
 }
 
+// hasAuth returns true if the receive is configured for bearer or basic auth.
 func (p *Puller) hasAuth() bool {
 	if p.Token != (BearerToken{}) {
 		return true
@@ -139,6 +159,9 @@ func (p *Puller) hasAuth() bool {
 	return false
 }
 
+// nsQueryParm checks if the receiver is configured with a namespace for pull-through,
+// and if it is, returns the namespace as a query param in the form: '?ns=X' where 'X'
+// is the receiver's namespace.
 func (p *Puller) nsQueryParm() string {
 	if p.Opts.Namespace != "" {
 		return "?ns=" + p.Opts.Namespace
@@ -147,8 +170,10 @@ func (p *Puller) nsQueryParm() string {
 	}
 }
 
+// checkPlatform validates the passed OS and architecture as well as
+// their combination together.
 func checkPlatform(OS string, Architecture string) bool {
-	validCombins := map[string][]string{
+	validOsArch := map[string][]string{
 		"android":   {"arm"},
 		"darwin":    {"386", "amd64", "arm", "arm64"},
 		"dragonfly": {"amd64"},
@@ -159,14 +184,9 @@ func checkPlatform(OS string, Architecture string) bool {
 		"plan9":     {"386", "amd64"},
 		"solaris":   {"amd64"},
 		"windows":   {"386", "amd64"}}
-	for os, archs := range validCombins {
+	for os, archs := range validOsArch {
 		if os == OS {
-			for _, arch := range archs {
-				if arch == Architecture {
-					return true
-				}
-			}
-			return false
+			return slices.Contains(archs, Architecture)
 		}
 	}
 	return false

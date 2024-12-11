@@ -13,6 +13,9 @@ import (
 // PullTar pulls an image tarball from a registry based on the configuration
 // options in the receiver.
 func (p *Puller) PullTar() error {
+	if p.Opts.Dest == "" {
+		return fmt.Errorf("no destination specified for pull of %q", p.Opts.Url)
+	}
 	tmpDir, err := os.MkdirTemp("/tmp", "imgpull.")
 	if err != nil {
 		return err
