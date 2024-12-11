@@ -167,7 +167,7 @@ func (p *Puller) v2Manifests(sha string) (ManifestHolder, error) {
 	if expDigest != "" {
 		actDigest := digest.FromBytes(manifestBytes).Hex()
 		if actDigest != digestFrom(expDigest) {
-			return ManifestHolder{}, fmt.Errorf("digest mismatch for %s", ref)
+			return ManifestHolder{}, fmt.Errorf("digest mismatch for %q", ref)
 		}
 	}
 	mh, err := NewManifestHolder(mediaType, manifestBytes)
@@ -188,18 +188,18 @@ func (p *Puller) v2ManifestsHead() (ManifestDescriptor, error) {
 		return ManifestDescriptor{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ManifestDescriptor{}, fmt.Errorf("head manifests for %s failed. Status: %d", url, resp.StatusCode)
+		return ManifestDescriptor{}, fmt.Errorf("head manifests for %q failed with status %q", url, resp.StatusCode)
 	}
 	if resp != nil {
 		defer resp.Body.Close()
 	}
 	mediaType := resp.Header.Get("Content-Type")
 	if mediaType == "" {
-		return ManifestDescriptor{}, fmt.Errorf("head manifests for %s did not return content type", url)
+		return ManifestDescriptor{}, fmt.Errorf("head manifests for %q did not return content type", url)
 	}
 	digest := resp.Header.Get("Docker-Content-Digest")
 	if digest == "" {
-		return ManifestDescriptor{}, fmt.Errorf("head manifests for %s did not return digest", url)
+		return ManifestDescriptor{}, fmt.Errorf("head manifests for %q did not return digest", url)
 	}
 	return ManifestDescriptor{
 		MediaType: mediaType,

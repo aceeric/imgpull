@@ -45,7 +45,7 @@ type ManifestHolder struct {
 func NewManifestHolder(mediaType string, bytes []byte) (ManifestHolder, error) {
 	mt := ToManifestType(mediaType)
 	if mt == Undefined {
-		return ManifestHolder{}, fmt.Errorf("unknown manifest type: %s", mediaType)
+		return ManifestHolder{}, fmt.Errorf("unknown manifest type %q", mediaType)
 	}
 	mh := ManifestHolder{
 		Type: mt,
@@ -157,7 +157,7 @@ func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
 		layer.MediaType = mh.V1ociManifest.Config.MediaType
 		layer.Size = int(mh.V1ociManifest.Config.Size)
 	default:
-		return layer, fmt.Errorf("can't get image config from this kind of manifest: %s", manifestTypeToString[mh.Type])
+		return layer, fmt.Errorf("can't get image config from %q kind of manifest", manifestTypeToString[mh.Type])
 	}
 	return layer, nil
 }
@@ -177,7 +177,7 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 			}
 		}
 	}
-	return "", fmt.Errorf("unable to get manifest SHA for os %s, arch %s", os, arch)
+	return "", fmt.Errorf("unable to get manifest SHA for os %q, arch %q", os, arch)
 }
 
 // NewDockerTarManifest creates a 'DockerTarManifest' from the passed image ref. It supports
@@ -206,7 +206,7 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (D
 			}
 		}
 	default:
-		return dtm, fmt.Errorf("can't create docker tar manifest from this kind of manifest: %s", manifestTypeToString[mh.Type])
+		return dtm, fmt.Errorf("can't create docker tar manifest from %q kind of manifest", manifestTypeToString[mh.Type])
 	}
 	for idx, layer := range dtm.Layers {
 		dtm.Layers[idx] = strings.Replace(layer, "sha256:", "", -1)
@@ -225,5 +225,5 @@ func extensionForLayer(mediaType string) (string, error) {
 	case V2dockerLayerZstdMt, V1ociLayerZstdMt:
 		return ".tar.zstd", nil
 	}
-	return "", fmt.Errorf("unsupported layer media type: %s", mediaType)
+	return "", fmt.Errorf("unsupported layer media type %q", mediaType)
 }

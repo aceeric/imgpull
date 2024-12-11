@@ -64,7 +64,7 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 		org = parts[1]
 		img = parts[2]
 	} else {
-		return ImageRef{}, fmt.Errorf("unable to parse image url: %s", url)
+		return ImageRef{}, fmt.Errorf("unable to parse image url %q", url)
 	}
 
 	ref_separators := []struct {
@@ -87,7 +87,7 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 	}
 
 	if img == "" {
-		return ImageRef{}, fmt.Errorf("unable to parse image url: %s", url)
+		return ImageRef{}, fmt.Errorf("unable to parse image url: %q", url)
 	}
 
 	return ImageRef{
