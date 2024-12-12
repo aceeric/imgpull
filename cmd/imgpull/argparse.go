@@ -134,7 +134,6 @@ func toPullerOpts(opts optMap) imgpull.PullerOpts {
 	return imgpull.PullerOpts{
 		Url:       opts.getVal(imageOpt),
 		Scheme:    opts.getVal(schemeOpt),
-		Dest:      opts.getVal(destOpt),
 		OSType:    opts.getVal(osOpt),
 		ArchType:  opts.getVal(archOpt),
 		Namespace: opts.getVal(namespaceOpt),

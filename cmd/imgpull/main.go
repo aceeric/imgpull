@@ -23,7 +23,7 @@ func main() {
 	//	mh, err := p.HeadManifest()
 	//	fmt.Println(mh, err)
 
-	err = p.PullTar()
+	err = p.PullTar(opts.getVal(destOpt))
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -51,8 +51,7 @@ func granular(p imgpull.Puller) {
 		fmt.Println(im)
 		url := p.ImgRef.ImageUrlWithDigest(digest)
 		opts := imgpull.PullerOpts{
-			Url:  url,
-			Dest: "/tmp/frobozz.tar",
+			Url: url,
 		}
 		// assign to outer 'p'
 		p, err = p.NewPullerFrom(opts)
@@ -63,7 +62,7 @@ func granular(p imgpull.Puller) {
 	}
 	// note this stores the manifest with repoTags = quay.io/curl/curl@sha256:4ea50088...
 	// but there's nothing that can be done about it.
-	err = p.PullTar()
+	err = p.PullTar("/tmp/frobozz.tar")
 	if err != nil {
 		fmt.Println(err)
 		return

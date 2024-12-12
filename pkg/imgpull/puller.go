@@ -12,9 +12,6 @@ type PullerOpts struct {
 	Url string
 	// Scheme is 'http' or 'https'.
 	Scheme string
-	// Dest is the absolute or relative path and filename to save the
-	// image tarfile to.
-	Dest string
 	// OSType is the operating system type, e.g.: 'linux'.
 	OSType string
 	// OSType is the architectire, e.g.: 'amd64'.
@@ -108,11 +105,8 @@ func (p *Puller) NewPullerFrom(newOpts PullerOpts) (Puller, error) {
 	if newOpts.Scheme != "" {
 		o.Scheme = newOpts.Scheme
 	}
-	if newOpts.Dest != "" {
-		o.Dest = newOpts.Dest
-	}
 	if newOpts.OSType != "" {
-		o.Dest = newOpts.Dest
+		o.OSType = newOpts.OSType
 	}
 	if newOpts.ArchType != "" {
 		o.ArchType = newOpts.ArchType
