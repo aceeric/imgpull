@@ -10,6 +10,9 @@ import (
 	"strings"
 )
 
+// HTTP status codes that we will interpret as un-authorized
+var unauth = []int{http.StatusUnauthorized, http.StatusForbidden}
+
 // PullTar pulls an image tarball from a registry based on the configuration
 // options in the receiver.
 func (p *Puller) PullTar(dest string) error {
@@ -49,7 +52,8 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err := p.Connect(); err != nil {
 		return DockerTarManifest{}, err
 	}
-	mh, err := p.v2Manifests("")
+	rc := p.RegCliFrom()
+	mh, err := rc.v2Manifests("")
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
@@ -62,7 +66,7 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
-		im, err := p.v2Manifests(digest)
+		im, err := rc.v2Manifests(digest)
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
@@ -77,12 +81,12 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 		return DockerTarManifest{}, err
 	}
 	// get the config blob to the file system
-	if err := p.v2Blobs(configDigest, toPath, true); err != nil {
+	if err := rc.v2Blobs(configDigest, toPath, true); err != nil {
 		return DockerTarManifest{}, err
 	}
 	// get the layer blobs to the file system
 	for _, layer := range mh.Layers() {
-		if err := p.v2Blobs(layer, toPath, false); err != nil {
+		if err := rc.v2Blobs(layer, toPath, false); err != nil {
 			return DockerTarManifest{}, err
 		}
 	}
@@ -103,7 +107,7 @@ func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestDescriptor{}, err
 	}
-	return p.v2ManifestsHead()
+	return p.RegCliFrom().v2ManifestsHead()
 }
 
 // GetManifest gets a manifest for the image in the receiver. If the receiver
@@ -116,7 +120,7 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestHolder{}, err
 	}
-	return p.v2Manifests("")
+	return p.RegCliFrom().v2Manifests("")
 }
 
 // GetManifestByDigest gets an image manifest by digest. Basically when building
@@ -127,7 +131,7 @@ func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestHolder{}, err
 	}
-	return p.v2Manifests(digest)
+	return p.RegCliFrom().v2Manifests(digest)
 }
 
 // Connect calls the 'v2' endpoint and looks for an auth header. If an auth
@@ -137,13 +141,10 @@ func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
 // the auth credential (bearer token or encrypted user/pass) are retained in
 // the receiver for all the other API methods to build an auth header with.
 func (p *Puller) Connect() error {
-	// HTTP status codes that we will interpret as un-authorized
-	unauth := []int{http.StatusUnauthorized, http.StatusForbidden}
-
 	if p.Connected {
 		return nil
 	}
-	status, auth, err := p.v2()
+	status, auth, err := p.RegCliFrom().v2()
 	if err != nil {
 		return err
 	}
@@ -168,14 +169,25 @@ func (p *Puller) Connect() error {
 // distribution server. For example if 'bearer' then the token received from the
 // remote registry will be added to the receiver.
 func (p *Puller) authenticate(auth []string) error {
+	rc := p.RegCliFrom()
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			ba := parseBearer(hdr)
-			return p.v2Auth(ba)
+			t, err := rc.v2Auth(ba)
+			if err != nil {
+				return err
+			}
+			p.Token = t
+			return nil
 		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
 			delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
 			encoded := base64.StdEncoding.EncodeToString([]byte(delimited))
-			return p.v2Basic(encoded)
+			ba, err := rc.v2Basic(encoded)
+			if err != nil {
+				return err
+			}
+			p.Basic = ba
+			return nil
 		}
 	}
 	return fmt.Errorf("unable to parse auth param: %v", auth)

@@ -33,8 +33,8 @@ type PullerOpts struct {
 	Namespace string
 }
 
-// Puller is everything that is needed to pull an OCI image from an upstream
-// OCI distribution server.
+// Puller is the top-level abstraction. It carries everything that is needed to pull
+// an OCI image from an upstream OCI distribution server.
 type Puller struct {
 	// Opts defines all the configurable behaviors of the puller.
 	Opts PullerOpts
@@ -132,6 +132,24 @@ func (p *Puller) NewPullerFrom(newOpts PullerOpts) (Puller, error) {
 	return NewPullerWith(o)
 }
 
+// RegCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
+// fields needed to interact with the OCI Distribution Server V2 REST API. It supports
+// a looser coupling of the Puller from actually interacting with the distribution server.
+func (p *Puller) RegCliFrom() RegClient {
+	c := RegClient{
+		ImgRef:    p.ImgRef,
+		Client:    p.Client,
+		Namespace: p.Opts.Namespace,
+	}
+	if k, v := p.authHdr(); k != "" {
+		c.AuthHdr = AuthHeader{
+			key:   k,
+			value: v,
+		}
+	}
+	return c
+}
+
 // authHdr returns a key/value pair to set an auth header based on whether
 // the receiver is configured for bearer or basic auth.
 func (p *Puller) authHdr() (string, string) {
@@ -141,27 +159,6 @@ func (p *Puller) authHdr() (string, string) {
 		return "Authorization", "Basic " + p.Basic.Encoded
 	}
 	return "", ""
-}
-
-// hasAuth returns true if the receive is configured for bearer or basic auth.
-func (p *Puller) hasAuth() bool {
-	if p.Token != (BearerToken{}) {
-		return true
-	} else if p.Basic != (BasicAuth{}) {
-		return true
-	}
-	return false
-}
-
-// nsQueryParm checks if the receiver is configured with a namespace for pull-through,
-// and if it is, returns the namespace as a query param in the form: '?ns=X' where 'X'
-// is the receiver's namespace.
-func (p *Puller) nsQueryParm() string {
-	if p.Opts.Namespace != "" {
-		return "?ns=" + p.Opts.Namespace
-	} else {
-		return ""
-	}
 }
 
 // checkPlatform validates the passed OS and architecture as well as

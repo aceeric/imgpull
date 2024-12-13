@@ -8,4 +8,3 @@ visibility - upper lower etc
 everything to receivers???
 logging
 unit tests - run /home/eace/projects/docker-distribution/registry/root.go
-decouple dopull.go from (p *Puller) ?

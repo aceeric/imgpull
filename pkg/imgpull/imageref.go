@@ -17,23 +17,23 @@ const (
 // NewImageRef was called with url='foo.io/bar/baz:1.2.3', and scheme =
 // https.
 type ImageRef struct {
-	// foo.io/bar/baz:v1.2.3
+	// e.g.: foo.io/bar/baz:v1.2.3
 	Raw string
-	// 'byTag'
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'PullType' is 'byTag'
 	PullType pullType
-	//	foo.io
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Registry' is 'foo.io'
 	Registry string
-	//	foo.io
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Server' is 'foo.io'
 	Server string
-	//	bar/baz
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Repository' is 'bar/baz'
 	Repository string
-	//	bar
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Org' is 'bar'
 	Org string
-	//	baz
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Image' is 'baz'
 	Image string
-	//	v1.2.3
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Ref' is 'v1.2.3'
 	Ref string
-	//	https
+	// defaults to 'https' unless overridden
 	Scheme string
 }
 
@@ -141,10 +141,10 @@ func (ip *ImageRef) ImageUrlWithDigest(digest string) string {
 	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, digest)
 }
 
-// RegistryUrl handles the case where an image is pulled from docker.io but the package
-// has to access the DockerHub API on registry.docker.io so the receiver would have a
-// 'Registry' value of docker.io and a 'Server' value of registry.docker.io. So this
-// function is used whenver API calls are made.
-func (ip *ImageRef) RegistryUrl() string {
+// ServerUrl handles the case where an image is pulled from docker.io but the package
+// has to access the DockerHub API on host registry.docker.io so the receiver would have
+// a 'Registry' value of docker.io and a 'Server' value of registry.docker.io. This function
+// is used whenver API calls are made - to return 'Server'.
+func (ip *ImageRef) ServerUrl() string {
 	return fmt.Sprintf("%s://%s", ip.Scheme, ip.Server)
 }
