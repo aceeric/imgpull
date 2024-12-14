@@ -12,3 +12,7 @@ everything to receivers???
 logging
 unit tests - USE MOCK!
 should pullopts be typed? E.g. scheme == HTTP (not "https")
+  - Scheme
+  - OSType
+  - ArchType
+  - Insecure

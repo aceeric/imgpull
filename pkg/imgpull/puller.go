@@ -19,7 +19,7 @@ type PullerOpts struct {
 	Scheme string
 	// OSType is the operating system type, e.g.: 'linux'.
 	OSType string
-	// OSType is the architectire, e.g.: 'amd64'.
+	// OSType is the architecture, e.g.: 'amd64'.
 	ArchType string
 	// Username is the user name for basic auth.
 	Username string

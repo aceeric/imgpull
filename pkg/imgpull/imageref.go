@@ -56,7 +56,7 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 
 	if strings.ToLower(registry) == "docker.io" {
 		// can't make API calls to docker.io
-		server = "registry.docker.io"
+		server = "index.docker.io"
 	}
 
 	if len(parts) == 2 {

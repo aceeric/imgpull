@@ -6,27 +6,21 @@ import (
 )
 
 func main() {
-	opts, err := parseArgs()
-	if err != nil {
+	if opts, err := parseArgs(); err != nil {
 		fmt.Println(err)
 		showUsageAndExit(nil)
-	}
-	p, err := imgpull.NewPullerWith(toPullerOpts(opts))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	//	// TESTS
-	//	granular(p)
-	//	os.Exit(0)
-	//
-	//	mh, err := p.HeadManifest()
-	//	fmt.Println(mh, err)
-
-	err = p.PullTar(opts.getVal(destOpt))
-	if err != nil {
-		fmt.Println(err)
-		return
+	} else {
+		if p, err := imgpull.NewPullerWith(toPullerOpts(opts)); err != nil {
+			fmt.Println(err)
+			return
+		} else {
+			err = p.PullTar(opts.getVal(destOpt))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			// TODO SOME COMPLETION MESSAGE WITH ELAPSED TIME
+		}
 	}
 }
 
