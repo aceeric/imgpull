@@ -45,6 +45,7 @@ const (
 	certOpt      optName = "cert"
 	keyOpt       optName = "key"
 	caOpt        optName = "cacert"
+	insecureOpt  optName = "insecure"
 	versionOpt   optName = "version"
 	helpOpt      optName = "help"
 	parsedOpt    optName = "parsed"
@@ -57,7 +58,8 @@ var usageText = `Usage:
 
 imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
  [-u|--user username] [-p|--password password] [-s|--scheme scheme] [-c|--cert tls cert]
- [-k|--key tls key] [-x|--cacert tls ca cert] [--parsed] [-v|--version] [-h|--help]
+ [-k|--key tls key] [-x|--cacert tls ca cert] [-i|--insecure]
+ [--parsed] [-v|--version] [-h|--help]
 
 The image ref and tar file are required. Everything else is optional. The OS and architecture
 default to your system's values.
@@ -84,6 +86,7 @@ func parseArgs() (optMap, error) {
 		certOpt:      {Name: certOpt, Short: "c", Long: "cert"},
 		keyOpt:       {Name: keyOpt, Short: "k", Long: "key"},
 		caOpt:        {Name: caOpt, Short: "x", Long: "cacert"},
+		insecureOpt:  {Name: insecureOpt, Short: "i", Long: "insecure", IsSwitch: true},
 		versionOpt:   {Name: versionOpt, Short: "v", Long: "version", IsSwitch: true, Func: showVersionAndExit},
 		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsageAndExit},
 		parsedOpt:    {Name: parsedOpt, Long: "parsed", IsSwitch: true, Func: showParsedAndExit},
@@ -142,6 +145,7 @@ func toPullerOpts(opts optMap) imgpull.PullerOpts {
 		TlsCert:   opts.getVal(certOpt),
 		TlsKey:    opts.getVal(keyOpt),
 		CACert:    opts.getVal(caOpt),
+		Insecure:  opts.getVal(insecureOpt),
 	}
 }
 

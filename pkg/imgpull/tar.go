@@ -23,7 +23,7 @@ type DockerTarManifest struct {
 //  1. The image manifest: 'manifest.json'
 //  2. A config layer whose name (like sha256:...) matches the config in the receiver
 //  3. Layer files named as listed in the Layers array in the receiver
-func (dtm *DockerTarManifest) toTar(tarfile string, sourceDir string) error {
+func (dtm *DockerTarManifest) toTar(sourceDir string, tarfile string) error {
 	file, err := os.Create(tarfile)
 	if err != nil {
 		return err

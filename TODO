@@ -1,5 +1,8 @@
 
 tls
+--insecure
+--image-manifest
+--manifest-list
 create locks on blob files
 check of blob file already exists
 configurable locations for interim files
@@ -8,3 +11,4 @@ visibility - upper lower etc
 everything to receivers???
 logging
 unit tests - run /home/eace/projects/docker-distribution/registry/root.go
+TODO - if no tar file then display the manifest??

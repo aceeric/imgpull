@@ -1,9 +1,13 @@
 package imgpull
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
+	"os"
 	"slices"
+	"strconv"
 )
 
 // PullerOpts defines all the configurable behaviors of the puller.
@@ -27,6 +31,8 @@ type PullerOpts struct {
 	// CACert is the client CA if the host truststore cannot verify the
 	// server cert.
 	CACert string
+	// Insecure skips server cert validation for the upstream registry (https-only)
+	Insecure string
 	// Namespace supports pull-through, i.e. pull 'localhost:5000/hello-world:latest'
 	// with namespace 'docker.io' to pull through localhost to dockerhub if you
 	// have a pull-through registry that supports that.
@@ -79,17 +85,31 @@ func NewPuller(url string, opts ...PullOpt) (Puller, error) {
 // NewPullerWith initializes and returns a Puller from the passed options. Part of
 // that involves parsing and validing the 'Url' member of the options, for example
 // docker.io/hello-world@latest). The url MUST begin with a registry ref (e.g. quay.io) -
-// it is not inferred by the function.
+// it is not inferred - and cannot be inferred - by the function.
 func NewPullerWith(o PullerOpts) (Puller, error) {
-	if !checkPlatform(o.OSType, o.ArchType) {
+	if !o.checkPlatform() {
 		return Puller{}, fmt.Errorf("operating system %q and/or architecture %q are not valid", o.OSType, o.ArchType)
+	}
+	if _, err := strconv.ParseBool(o.Insecure); err != nil {
+		return Puller{}, fmt.Errorf("value %q for insecure does not parse as a boolean", o.Insecure)
 	}
 	if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
 		return Puller{}, err
 	} else {
+		c := &http.Client{}
+		cfg, err := o.configureTls()
+		if err != nil {
+			return Puller{}, err
+		}
+		if cfg != nil {
+			tr := &http.Transport{
+				TLSClientConfig: cfg,
+			}
+			c.Transport = tr
+		}
 		return Puller{
 			ImgRef: pr,
-			Client: &http.Client{},
+			Client: c,
 			Opts:   o,
 		}, nil
 	}
@@ -126,28 +146,13 @@ func (p *Puller) NewPullerFrom(newOpts PullerOpts) (Puller, error) {
 	if newOpts.CACert != "" {
 		o.CACert = newOpts.CACert
 	}
+	if newOpts.Insecure != "" {
+		o.Insecure = newOpts.Insecure
+	}
 	if newOpts.Namespace != "" {
 		o.Namespace = newOpts.Namespace
 	}
 	return NewPullerWith(o)
-}
-
-// RegCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
-// fields needed to interact with the OCI Distribution Server V2 REST API. It supports
-// a looser coupling of the Puller from actually interacting with the distribution server.
-func (p *Puller) RegCliFrom() RegClient {
-	c := RegClient{
-		ImgRef:    p.ImgRef,
-		Client:    p.Client,
-		Namespace: p.Opts.Namespace,
-	}
-	if k, v := p.authHdr(); k != "" {
-		c.AuthHdr = AuthHeader{
-			key:   k,
-			value: v,
-		}
-	}
-	return c
 }
 
 // authHdr returns a key/value pair to set an auth header based on whether
@@ -163,7 +168,7 @@ func (p *Puller) authHdr() (string, string) {
 
 // checkPlatform validates the passed OS and architecture as well as
 // their combination together.
-func checkPlatform(OS string, Architecture string) bool {
+func (o PullerOpts) checkPlatform() bool {
 	validOsArch := map[string][]string{
 		"android":   {"arm"},
 		"darwin":    {"386", "amd64", "arm", "arm64"},
@@ -176,9 +181,43 @@ func checkPlatform(OS string, Architecture string) bool {
 		"solaris":   {"amd64"},
 		"windows":   {"386", "amd64"}}
 	for os, archs := range validOsArch {
-		if os == OS {
-			return slices.Contains(archs, Architecture)
+		if os == o.OSType {
+			return slices.Contains(archs, o.ArchType)
 		}
 	}
 	return false
+}
+
+// configureTls initializes and returns a pointer to a 'tls.Config' struct based
+// on TLS-related variables in the receiver. If there are no TLS-related variables in
+// the receiver then nil is returned.
+func (o PullerOpts) configureTls() (*tls.Config, error) {
+	cfg := &tls.Config{}
+	hasCfg := false
+	if o.TlsCert != "" && o.TlsKey != "" {
+		if cert, err := tls.LoadX509KeyPair(o.TlsCert, o.TlsKey); err != nil {
+			return nil, err
+		} else {
+			cfg.Certificates = []tls.Certificate{cert}
+			hasCfg = true
+		}
+	}
+	if o.CACert != "" {
+		cp := x509.NewCertPool()
+		if caCert, err := os.ReadFile(o.CACert); err != nil {
+			return nil, err
+		} else {
+			cp.AppendCertsFromPEM(caCert)
+			hasCfg = true
+		}
+	}
+	if insecure, _ := strconv.ParseBool(o.Insecure); insecure {
+		cfg.InsecureSkipVerify = insecure
+		hasCfg = true
+	}
+
+	if hasCfg {
+		return cfg, nil
+	}
+	return nil, nil
 }

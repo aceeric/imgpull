@@ -14,7 +14,8 @@ import (
 var unauth = []int{http.StatusUnauthorized, http.StatusForbidden}
 
 // PullTar pulls an image tarball from a registry based on the configuration
-// options in the receiver.
+// options in the receiver and writes it to the file name (and optionally path
+// name) specified in the 'dest' arg.
 func (p *Puller) PullTar(dest string) error {
 	if dest == "" {
 		return fmt.Errorf("no destination specified for pull of %q", p.Opts.Url)
@@ -23,36 +24,34 @@ func (p *Puller) PullTar(dest string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		err := os.Remove(tmpDir)
-		if err != nil {
-			// what can be done
-		}
-	}()
+	defer os.Remove(tmpDir)
 	if dtm, err := p.Pull(tmpDir); err != nil {
 		return err
 	} else {
-		return dtm.toTar(dest, tmpDir)
+		return dtm.toTar(tmpDir, dest)
 	}
 }
 
 // Pull pulls the image specified in the receiver to the passed 'toPath'. A
-// 'DockerTarManifest' is returned that describes the pulled image. This return
-// val can be provided to the 'toTar' function to create a tarball, just as
-// 'docker save' would do.
+// 'DockerTarManifest' is returned that describes the pulled image. The directory
+// specfied by'toPath' will be populated with:
 //
-// The directory specfied by'toPath' will be populated with the image list
-// manifest for the URL, the image manifest, the docker TAR manifest, and
-// the blobs, including the configuration blob. In other words everything needed
-// to create a tarball that looks like a 'docker save' tarball.
+//  1. The image list manifest for the URL,
+//  2. The image manifest.
+//  3. The docker TAR manifest (the same one returned from the function), and
+//  4. The blobs, including the configuration blob.
 //
-// The image list manifest and the image manifest don't get belog in the
-// image tarball but they are included in case the caller wants them.
+// In other words everything needed to create a tarball that looks like a
+// 'docker save' tarball.
+//
+// The image list manifest and the image manifest don't get included in the
+// image tarball but they are populated in the directory in case the caller
+// wants them.
 func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 	if err := p.Connect(); err != nil {
 		return DockerTarManifest{}, err
 	}
-	rc := p.RegCliFrom()
+	rc := p.regCliFrom()
 	mh, err := rc.v2Manifests("")
 	if err != nil {
 		return DockerTarManifest{}, err
@@ -107,7 +106,7 @@ func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestDescriptor{}, err
 	}
-	return p.RegCliFrom().v2ManifestsHead()
+	return p.regCliFrom().v2ManifestsHead()
 }
 
 // GetManifest gets a manifest for the image in the receiver. If the receiver
@@ -120,7 +119,7 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestHolder{}, err
 	}
-	return p.RegCliFrom().v2Manifests("")
+	return p.regCliFrom().v2Manifests("")
 }
 
 // GetManifestByDigest gets an image manifest by digest. Basically when building
@@ -131,7 +130,7 @@ func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
 	if err := p.Connect(); err != nil {
 		return ManifestHolder{}, err
 	}
-	return p.RegCliFrom().v2Manifests(digest)
+	return p.regCliFrom().v2Manifests(digest)
 }
 
 // Connect calls the 'v2' endpoint and looks for an auth header. If an auth
@@ -140,11 +139,14 @@ func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
 // Basic using the user/pass in the receiver. Once successfully authenticated,
 // the auth credential (bearer token or encrypted user/pass) are retained in
 // the receiver for all the other API methods to build an auth header with.
+//
+// If the function has already been called on the receiver, it immediately
+// returns taking no action.
 func (p *Puller) Connect() error {
 	if p.Connected {
 		return nil
 	}
-	status, auth, err := p.RegCliFrom().v2()
+	status, auth, err := p.regCliFrom().v2()
 	if err != nil {
 		return err
 	}
@@ -169,7 +171,7 @@ func (p *Puller) Connect() error {
 // distribution server. For example if 'bearer' then the token received from the
 // remote registry will be added to the receiver.
 func (p *Puller) authenticate(auth []string) error {
-	rc := p.RegCliFrom()
+	rc := p.regCliFrom()
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			ba := parseBearer(hdr)
@@ -226,4 +228,27 @@ func parseBearer(authHdr string) BearerAuth {
 		}
 	}
 	return ba
+}
+
+// regCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
+// fields needed to interact with the OCI Distribution Server V2 REST API. It supports
+// a looser coupling of the Puller from actually interacting with the distribution server.
+//
+// If this function is intended to return a RegClient to make API calls that require auth
+// headers, then the Connect function must previously have been called on the receiver so
+// that the auth struct in the receiver is initialized by virtue of that call. The auth
+// struct is copied into the returned RegClient struct which is used to set auth headers.
+func (p *Puller) regCliFrom() RegClient {
+	c := RegClient{
+		ImgRef:    p.ImgRef,
+		Client:    p.Client,
+		Namespace: p.Opts.Namespace,
+	}
+	if k, v := p.authHdr(); k != "" {
+		c.AuthHdr = AuthHeader{
+			key:   k,
+			value: v,
+		}
+	}
+	return c
 }

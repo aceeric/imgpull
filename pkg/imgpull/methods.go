@@ -12,6 +12,12 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
+const (
+	mebibytes        = 1024 * 1024
+	maxManifestBytes = 100 * mebibytes
+	maxBlobBytes     = 100 * mebibytes
+)
+
 // AuthHeader is a key/value struct that supports creating and setting an auth
 // header for the supported auth type (basic, bearer).
 type AuthHeader struct {
@@ -32,12 +38,6 @@ type RegClient struct {
 	AuthHdr AuthHeader
 }
 
-const (
-	mebibytes        = 1024 * 1024
-	maxManifestBytes = 100 * mebibytes
-	maxBlobBytes     = 100 * mebibytes
-)
-
 // allManifestTypes lists all of the manifest types that this package
 // will operate on.
 var allManifestTypes []string = []string{
@@ -47,24 +47,8 @@ var allManifestTypes []string = []string{
 	V1ociManifestMt,
 }
 
-func (c RegClient) setAuthHdr(req *http.Request) {
-	if c.AuthHdr != (AuthHeader{}) {
-		req.Header.Set(c.AuthHdr.key, c.AuthHdr.value)
-	}
-}
-
-// nsQueryParm checks if the receiver is configured with a namespace for pull-through,
-// and if it is, returns the namespace as a query param in the form: '?ns=X' where 'X'
-// is the receiver's namespace.
-func (c RegClient) nsQueryParm() string {
-	if c.Namespace != "" {
-		return "?ns=" + c.Namespace
-	} else {
-		return ""
-	}
-}
-
-// calls the 'v2' endpoint which typically either returns OK or unauthorized.
+// calls the 'v2' endpoint which typically either returns OK or unauthorized. It is the first
+// API call made to an OCI Distribution server to initiate an image pull.
 func (c RegClient) v2() (int, []string, error) {
 	url := fmt.Sprintf("%s/v2/", c.ImgRef.ServerUrl())
 	resp, err := c.Client.Head(url)
@@ -125,10 +109,10 @@ func (c RegClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 }
 
 // v2Blobs calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the passed
-// 'layer' arg. The blob is stored in the location specified by 'destPath'. The 'isConfig'
+// 'layer' arg. The blob is stored in the location specified by 'toPath'. The 'isConfig'
 // var indicates that the blob is a config blob. Objects are stored with their digest as the file
 // name.
-func (c RegClient) v2Blobs(layer Layer, destPath string, isConfig bool) error {
+func (c RegClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", c.ImgRef.ServerUrl(), c.ImgRef.Repository, layer.Digest, c.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	c.setAuthHdr(req)
@@ -139,7 +123,7 @@ func (c RegClient) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 	if err != nil {
 		return err
 	}
-	fName := filepath.Join(destPath, layer.Digest)
+	fName := filepath.Join(toPath, layer.Digest)
 	if !isConfig {
 		fName = strings.Replace(filepath.Join(fName+".tar.gz"), "sha256:", "", -1)
 	}
@@ -171,6 +155,9 @@ func (c RegClient) v2Blobs(layer Layer, destPath string, isConfig bool) error {
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
 // If you pass an empty string in 'sha', then the GET will use the image url that was used to initialize
 // the Puller. (Probably a tag.) If you provide a digest in 'sha', the digest will override the tag.
+//
+// Generally speaking: pull by tag returns an image list from the registry if one is available and pull
+// by digest (SHA) returns an image manifest. But this might not be true all the time.
 func (c RegClient) v2Manifests(sha string) (ManifestHolder, error) {
 	ref := c.ImgRef.Ref
 	if sha != "" {
@@ -250,4 +237,24 @@ func getWwwAuthenticateHdrs(r *http.Response) []string {
 		}
 	}
 	return hdrs
+}
+
+// setAuthHdr sets an auth header (e.g. "Bearer", "Basic") on the passed request
+// if the receiver is configured with such a header.
+func (c RegClient) setAuthHdr(req *http.Request) {
+	if c.AuthHdr != (AuthHeader{}) {
+		req.Header.Set(c.AuthHdr.key, c.AuthHdr.value)
+	}
+}
+
+// nsQueryParm checks if the receiver is configured with a namespace for pull-through,
+// and if it is, returns the namespace as a query param in the form: '?ns=X' where 'X'
+// is the receiver's namespace. If no namespace is configured, then the function
+// returns the empty string.
+func (c RegClient) nsQueryParm() string {
+	if c.Namespace != "" {
+		return "?ns=" + c.Namespace
+	} else {
+		return ""
+	}
 }

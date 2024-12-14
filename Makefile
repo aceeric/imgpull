@@ -12,8 +12,8 @@ all:
 #	  ociregistry/impl/preload ociregistry/impl/pullrequest ociregistry/impl/serialize ociregistry/impl/upstream\
 #	  ociregistry/impl ociregistry/mock
 
-.PHONY: desktop
-desktop:
+.PHONY: imgpull
+imgpull:
 	CGO_ENABLED=0 go build -ldflags "-X 'main.buildVer=$(CMD_VERSION)' -X 'main.buildDtm=$(DATETIME)'"\
 	 -a -o $(ROOT)/bin/imgpull $(ROOT)/cmd/imgpull/*.go
 
@@ -27,6 +27,6 @@ This make file provides the following targets:
 
 test          Runs the unit tests
 
-desktop       Builds the CLI. After building then: 'bin/imgpull --help'.
+imgpull       Builds the CLI. After building then: 'bin/imgpull --help'.
 
 endef
