@@ -8,6 +8,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 // PullerOpts defines all the configurable behaviors of the puller.
@@ -93,6 +94,7 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 	if _, err := strconv.ParseBool(o.Insecure); err != nil {
 		return Puller{}, fmt.Errorf("value %q for insecure does not parse as a boolean", o.Insecure)
 	}
+	o.Scheme = strings.ToLower(o.Scheme)
 	if pr, err := NewImageRef(o.Url, o.Scheme); err != nil {
 		return Puller{}, err
 	} else {
@@ -192,6 +194,9 @@ func (o PullerOpts) checkPlatform() bool {
 // on TLS-related variables in the receiver. If there are no TLS-related variables in
 // the receiver then nil is returned.
 func (o PullerOpts) configureTls() (*tls.Config, error) {
+	if o.Scheme == "http" {
+		return nil, nil
+	}
 	cfg := &tls.Config{}
 	hasCfg := false
 	if o.TlsCert != "" && o.TlsKey != "" {

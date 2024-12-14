@@ -86,7 +86,7 @@ func parseArgs() (optMap, error) {
 		certOpt:      {Name: certOpt, Short: "c", Long: "cert"},
 		keyOpt:       {Name: keyOpt, Short: "k", Long: "key"},
 		caOpt:        {Name: caOpt, Short: "x", Long: "cacert"},
-		insecureOpt:  {Name: insecureOpt, Short: "i", Long: "insecure", IsSwitch: true},
+		insecureOpt:  {Name: insecureOpt, Short: "i", Long: "insecure", IsSwitch: true, Dflt: "false"},
 		versionOpt:   {Name: versionOpt, Short: "v", Long: "version", IsSwitch: true, Func: showVersionAndExit},
 		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsageAndExit},
 		parsedOpt:    {Name: parsedOpt, Long: "parsed", IsSwitch: true, Func: showParsedAndExit},

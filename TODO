@@ -1,8 +1,8 @@
 
 tls
 --insecure
---image-manifest
---manifest-list
+--image-manifest (dont need tarfile)
+--manifest-list (dont need tarfile)
 create locks on blob files
 check of blob file already exists
 configurable locations for interim files
@@ -10,5 +10,5 @@ all errors print the image ref - minimall review all errors
 visibility - upper lower etc
 everything to receivers???
 logging
-unit tests - run /home/eace/projects/docker-distribution/registry/root.go
-TODO - if no tar file then display the manifest??
+unit tests - USE MOCK!
+should pullopts be typed? E.g. scheme == HTTP (not "https")
