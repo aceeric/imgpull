@@ -100,7 +100,7 @@ func parseArgs() (optMap, error) {
 	for i := 1; i < len(os.Args); i++ {
 		parsed := false
 		for _, option := range opts {
-			val, newi := getval(option.Short, option.Long, option.IsSwitch, os.Args, i)
+			val, newi := getOptVal(option.Short, option.Long, option.IsSwitch, os.Args, i)
 			if val != "" {
 				if option.Func != nil {
 					option.Func(opts)
@@ -166,7 +166,7 @@ func pullerOptsFrom(opts optMap) imgpull.PullerOpts {
 	}
 }
 
-// getval gets a value from a command line arg. Several forms are supported:
+// getOptVal gets an option value from a command line param. Several forms are supported:
 //
 //	--foo (this is a switch-style)
 //	--foo bar
@@ -176,8 +176,9 @@ func pullerOptsFrom(opts optMap) imgpull.PullerOpts {
 //	-fbar
 //	-f=bar
 //
-// Compound short opts (such as -fabc) are not supported at this time.
-func getval(short, long string, isswitch bool, args []string, i int) (string, int) {
+// Compound short opts such as -fabc as shorthand for -f -a -b -c are not supported
+// at this time. So '-fbar' is interpreted as '-f=bar'.
+func getOptVal(short, long string, isswitch bool, args []string, i int) (string, int) {
 	if short == "" && long == "" {
 		// positional param
 		return "", 0
@@ -221,15 +222,14 @@ func getval(short, long string, isswitch bool, args []string, i int) (string, in
 	return "", 0
 }
 
-// setVal sets the value for the entry in the options map of the passed
-// name
+// setVal sets the passed value in the options map for the passed option name.
 func (m *optMap) setVal(name optName, value string) {
 	opt := (*m)[name]
 	opt.Value = value
 	(*m)[name] = opt
 }
 
-// getVal gets the named value from the options map
+// getVal gets the value from the options map for the passed option name.
 func (m *optMap) getVal(name optName) string {
 	return (*m)[name].Value
 }
