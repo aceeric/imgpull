@@ -7,20 +7,20 @@ import (
 )
 
 func main() {
-	opts, err := parseArgs()
+	cmdline, err := parseArgs()
 	if err != nil {
 		fmt.Println(err)
 		showUsageAndExit(nil)
 	}
-	p, err := imgpull.NewPullerWith(pullerOptsFrom(opts))
+	p, err := imgpull.NewPullerWith(pullerOptsFrom(cmdline))
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	if opts.getVal(manifestOpt) == "" {
-		pullTar(p, opts.getVal(destOpt))
+	if cmdline.getVal(manifestOpt) == "" {
+		pullTar(p, cmdline.getVal(destOpt))
 	} else {
-		pullManifest(p, opts.getVal(manifestOpt))
+		pullManifest(p, cmdline.getVal(manifestOpt))
 	}
 }
 
