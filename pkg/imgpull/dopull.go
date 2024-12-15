@@ -227,6 +227,29 @@ func (p *Puller) authenticate(auth []string) error {
 	return fmt.Errorf("unable to parse auth param: %v", auth)
 }
 
+// regCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
+// fields needed to interact with the OCI Distribution Server V2 REST API. It supports
+// a looser coupling of the Puller from actually interacting with the distribution server.
+//
+// If this function is intended to return a RegClient to make API calls that require auth
+// headers, then the Connect function must previously have been called on the receiver so
+// that the auth struct in the receiver is initialized by virtue of that call. The auth
+// struct is copied into the returned RegClient struct which is used to set auth headers.
+func (p *Puller) regCliFrom() RegClient {
+	c := RegClient{
+		ImgRef:    p.ImgRef,
+		Client:    p.Client,
+		Namespace: p.Opts.Namespace,
+	}
+	if k, v := p.authHdr(); k != "" {
+		c.AuthHdr = AuthHeader{
+			key:   k,
+			value: v,
+		}
+	}
+	return c
+}
+
 // parseBearer parses the passed auth header which the caller should ensure is a bearer
 // type "www-authenticate" header like:
 //
@@ -250,27 +273,4 @@ func parseBearer(authHdr string) BearerAuth {
 		}
 	}
 	return ba
-}
-
-// regCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
-// fields needed to interact with the OCI Distribution Server V2 REST API. It supports
-// a looser coupling of the Puller from actually interacting with the distribution server.
-//
-// If this function is intended to return a RegClient to make API calls that require auth
-// headers, then the Connect function must previously have been called on the receiver so
-// that the auth struct in the receiver is initialized by virtue of that call. The auth
-// struct is copied into the returned RegClient struct which is used to set auth headers.
-func (p *Puller) regCliFrom() RegClient {
-	c := RegClient{
-		ImgRef:    p.ImgRef,
-		Client:    p.Client,
-		Namespace: p.Opts.Namespace,
-	}
-	if k, v := p.authHdr(); k != "" {
-		c.AuthHdr = AuthHeader{
-			key:   k,
-			value: v,
-		}
-	}
-	return c
 }
