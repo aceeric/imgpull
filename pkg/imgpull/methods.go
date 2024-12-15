@@ -225,20 +225,6 @@ func (c RegClient) v2ManifestsHead() (ManifestDescriptor, error) {
 	}, nil
 }
 
-// getWwwAuthenticateHdrs gets all "www-authenticate" headers from
-// the passed response.
-func getWwwAuthenticateHdrs(r *http.Response) []string {
-	hdrs := []string{}
-	for key, vals := range r.Header {
-		for _, val := range vals {
-			if strings.ToLower(key) == "www-authenticate" {
-				hdrs = append(hdrs, val)
-			}
-		}
-	}
-	return hdrs
-}
-
 // setAuthHdr sets an auth header (e.g. "Bearer", "Basic") on the passed request
 // if the receiver is configured with such a header.
 func (c RegClient) setAuthHdr(req *http.Request) {
@@ -257,4 +243,18 @@ func (c RegClient) nsQueryParm() string {
 	} else {
 		return ""
 	}
+}
+
+// getWwwAuthenticateHdrs gets all "www-authenticate" headers from
+// the passed response.
+func getWwwAuthenticateHdrs(r *http.Response) []string {
+	hdrs := []string{}
+	for key, vals := range r.Header {
+		for _, val := range vals {
+			if strings.ToLower(key) == "www-authenticate" {
+				hdrs = append(hdrs, val)
+			}
+		}
+	}
+	return hdrs
 }
