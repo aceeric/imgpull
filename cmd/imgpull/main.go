@@ -20,7 +20,7 @@ func main() {
 	if cmdline.getVal(manifestOpt) == "" {
 		pullTar(p, cmdline.getVal(destOpt))
 	} else {
-		pullManifest(p, cmdline.getVal(manifestOpt))
+		showManifest(p, cmdline.getVal(manifestOpt))
 	}
 }
 
@@ -33,7 +33,7 @@ func pullTar(p imgpull.Puller, tarFile string) {
 	fmt.Printf("image %q saved to %q in %s\n", p.ImgRef.ImageUrl(), tarFile, time.Since(start))
 }
 
-func pullManifest(p imgpull.Puller, manifest string) {
+func showManifest(p imgpull.Puller, manifest string) {
 	mt := imgpull.ImageList
 	if manifest == "image" {
 		mt = imgpull.Image
