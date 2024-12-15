@@ -1,18 +1,7 @@
 
-tls
---insecure
---image-manifest (dont need tarfile)
---manifest-list (dont need tarfile)
 create locks on blob files
 check of blob file already exists
 configurable locations for interim files
 all errors print the image ref - minimall review all errors
 visibility - upper lower etc
-everything to receivers???
-logging
 unit tests - USE MOCK!
-should pullopts be typed? E.g. scheme == HTTP (not "https")
-  - Scheme
-  - OSType
-  - ArchType
-  - Insecure

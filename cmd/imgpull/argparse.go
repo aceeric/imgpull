@@ -6,6 +6,7 @@ import (
 	"imgpull/pkg/imgpull"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -46,6 +47,7 @@ const (
 	keyOpt       optName = "key"
 	caOpt        optName = "cacert"
 	insecureOpt  optName = "insecure"
+	manifestOpt  optName = "manifest"
 	versionOpt   optName = "version"
 	helpOpt      optName = "help"
 	parsedOpt    optName = "parsed"
@@ -54,25 +56,28 @@ const (
 // optMap holds the parsed command line
 type optMap map[optName]opt
 
-var usageText = `Usage:
+var usageText = `
+Usage:
 
 imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
  [-u|--user username] [-p|--password password] [-s|--scheme scheme] [-c|--cert tls cert]
- [-k|--key tls key] [-x|--cacert tls ca cert] [-i|--insecure]
- [--parsed] [-v|--version] [-h|--help]
+ [-k|--key tls key] [-x|--cacert tls ca cert] [-i|--insecure] [-m|--manifest type]
+ [-v|--version] [-h|--help] [--parsed]
 
-The image ref and tar file are required. Everything else is optional. The OS and architecture
-default to your system's values.
+The image ref is required. Tar file is required if pulling a tarball. Everything else is
+optional. The OS and architecture default to your system's values.
 
 Example:
 
-imgpull docker.io/hello-world:latest ./hello-world.tar -o linux -a amd64
+imgpull docker.io/hello-world:latest ./hello-world.latest.tar
 
-The example pulls the image for linux/amd64 to hello-world.tar in the working directory.
+The example pulls the image to hello-world.latest.tar in the working directory using the
+operating system and architecture of the current system.
 `
 
-// parseArgs parses and validates args, returning them in a map. The 'ToPullerOpts'
-// function can convert the returned map to a 'PullerOpts' struct.
+// parseArgs parses and validates the command line parameters and options, returning them in a map.
+// Only validations within the scope of the command line are validated. For example whether the URL
+// is valid or not is determined by the Puller.
 func parseArgs() (optMap, error) {
 	opts := optMap{
 		imageOpt:     {Name: imageOpt},
@@ -87,6 +92,7 @@ func parseArgs() (optMap, error) {
 		keyOpt:       {Name: keyOpt, Short: "k", Long: "key"},
 		caOpt:        {Name: caOpt, Short: "x", Long: "cacert"},
 		insecureOpt:  {Name: insecureOpt, Short: "i", Long: "insecure", IsSwitch: true, Dflt: "false"},
+		manifestOpt:  {Name: manifestOpt, Short: "m", Long: "manifest"},
 		versionOpt:   {Name: versionOpt, Short: "v", Long: "version", IsSwitch: true, Func: showVersionAndExit},
 		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsageAndExit},
 		parsedOpt:    {Name: parsedOpt, Long: "parsed", IsSwitch: true, Func: showParsedAndExit},
@@ -118,9 +124,19 @@ func parseArgs() (optMap, error) {
 			}
 		}
 	}
-	// need the image to pull and the tarball to save it to
-	if opts[imageOpt].Value == "" || opts[destOpt].Value == "" {
-		return opts, errors.New("command line is missing one or both of image reference and/or tarball to save to")
+	if opts[manifestOpt].Value != "" {
+		opts.setVal(manifestOpt, strings.ToLower(opts[manifestOpt].Value))
+		if opts[manifestOpt].Value != "image" && opts[manifestOpt].Value != "list" {
+			return opts, fmt.Errorf("invalid value %q for --manifest arg", opts[manifestOpt].Value)
+		}
+	}
+	// need the image to pull
+	if opts[imageOpt].Value == "" {
+		return opts, errors.New("command line is missing image reference")
+	}
+	// maybe need the tarball to save it to
+	if opts[destOpt].Value == "" && opts[manifestOpt].Value == "" {
+		return opts, errors.New("command line is missing tarball to save to")
 	}
 	// apply any defaults if an override was not provided on the cmdline
 	for _, option := range opts {
@@ -131,21 +147,22 @@ func parseArgs() (optMap, error) {
 	return opts, nil
 }
 
-// toPullerOpts returns the passed map containing parsed args in a
+// pullerOptsFrom returns the passed map containing parsed args in a
 // 'PullerOpts' struct.
-func toPullerOpts(opts optMap) imgpull.PullerOpts {
+func pullerOptsFrom(opts optMap) imgpull.PullerOpts {
+	insecure, _ := strconv.ParseBool(opts.getVal(insecureOpt))
 	return imgpull.PullerOpts{
 		Url:       opts.getVal(imageOpt),
 		Scheme:    opts.getVal(schemeOpt),
-		OSType:    opts.getVal(osOpt),
+		OStype:    opts.getVal(osOpt),
 		ArchType:  opts.getVal(archOpt),
 		Namespace: opts.getVal(namespaceOpt),
 		Username:  opts.getVal(usernameOpt),
 		Password:  opts.getVal(passwordOpt),
 		TlsCert:   opts.getVal(certOpt),
 		TlsKey:    opts.getVal(keyOpt),
-		CACert:    opts.getVal(caOpt),
-		Insecure:  opts.getVal(insecureOpt),
+		CaCert:    opts.getVal(caOpt),
+		Insecure:  insecure,
 	}
 }
 

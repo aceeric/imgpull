@@ -19,6 +19,17 @@ const (
 	V1ociManifest
 )
 
+// ManifestPullType is for the PullManifest function indicating whether to
+// pull an image manifest or an image list manifest.
+type ManifestPullType int
+
+const (
+	// An image list manifest
+	ImageList ManifestPullType = iota
+	// An image manifest
+	Image
+)
+
 // manifestTypeToString has string representations for all supported
 // 'ManifestType's.
 var manifestTypeToString = map[ManifestType]string{
@@ -192,7 +203,7 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (D
 	switch mh.Type {
 	case V2dockerManifest:
 		dtm.Config = mh.V2dockerManifest.Config.Digest
-		dtm.RepoTags = []string{ip.ImageUrl(namespace)}
+		dtm.RepoTags = []string{ip.ImageUrlWithNs(namespace)}
 		for _, layer := range mh.V2dockerManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
 				return dtm, err
@@ -202,7 +213,7 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (D
 		}
 	case V1ociManifest:
 		dtm.Config = mh.V1ociManifest.Config.Digest
-		dtm.RepoTags = []string{ip.ImageUrl(namespace)}
+		dtm.RepoTags = []string{ip.ImageUrlWithNs(namespace)}
 		for _, layer := range mh.V1ociManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
 				return dtm, err
@@ -217,6 +228,16 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (D
 		dtm.Layers[idx] = strings.Replace(layer, "sha256:", "", -1)
 	}
 	return dtm, nil
+}
+
+// saveManifest extracts the manifest from the recevier and save it to a file
+// with the passed name in the passed path.
+func (mh *ManifestHolder) saveManifest(toPath string, name string) error {
+	json, err := mh.ToString()
+	if err != nil {
+		return err
+	}
+	return saveFile([]byte(json), toPath, name)
 }
 
 // extensionForLayer returns '.tar', '.tar.gz', or '.tar.zstd' based on the

@@ -106,7 +106,13 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 }
 
 // ImageUrl returns the ImageRef receiver URL-related content as an image reference suitable for
-// a 'docker pull' command. E.g.: 'docker pull quay.io/appzygy/ociregistry:1.5.0'.
+// a 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'.
+func (ip *ImageRef) ImageUrl() string {
+	return ip.ImageUrlWithNs("")
+}
+
+// ImageUrlWithNs returns the ImageRef receiver URL-related content as an image reference suitable for
+// a 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'.
 //
 // If the namespace arg is non-empty then the function replaces the registry configured in the
 // receiver. E.g.: if the receiver has a reference like 'localhost:8080/appzygy/ociregistry:1.5.0'
@@ -117,7 +123,7 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 // is to allow an image tarball to be pulled from a pull-through registry but have the
 // 'RepoTags' field in the tarball 'manifests.json' look like it was pulled from the registry
 // in the namespace rather than from a pull-through registry.
-func (ip *ImageRef) ImageUrl(namespace string) string {
+func (ip *ImageRef) ImageUrlWithNs(namespace string) string {
 	separator := ":"
 	reg := ip.Registry
 	if namespace != "" {

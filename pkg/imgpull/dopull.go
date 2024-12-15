@@ -32,6 +32,38 @@ func (p *Puller) PullTar(dest string) error {
 	}
 }
 
+// PullManifest pulls an image manifest or an image list manifest based on the value
+// of the 'mpt' arg.
+func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
+	if err := p.Connect(); err != nil {
+		return ManifestHolder{}, err
+	}
+	rc := p.regCliFrom()
+	mh, err := rc.v2Manifests("")
+	if err != nil {
+		return ManifestHolder{}, err
+	}
+	if mh.IsManifestList() {
+		if mpt == ImageList {
+			return mh, nil
+		}
+		digest, err := mh.GetImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
+		if err != nil {
+			return ManifestHolder{}, err
+		}
+		im, err := rc.v2Manifests(digest)
+		if err != nil {
+			return ManifestHolder{}, err
+		}
+		return im, nil
+	}
+	if mpt == Image {
+		return mh, nil
+	} else {
+		return ManifestHolder{}, fmt.Errorf("server did not provide a manifest list for %q", p.ImgRef.ImageUrl())
+	}
+}
+
 // Pull pulls the image specified in the receiver to the passed 'toPath'. A
 // 'DockerTarManifest' is returned that describes the pulled image. The directory
 // specfied by'toPath' will be populated with:
@@ -57,11 +89,11 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 		return DockerTarManifest{}, err
 	}
 	if mh.IsManifestList() {
-		err := saveManifest(mh, toPath, "image-index.json")
+		err := mh.saveManifest(toPath, "image-index.json")
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
-		digest, err := mh.GetImageDigestFor(p.Opts.OSType, p.Opts.ArchType)
+		digest, err := mh.GetImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
 		if err != nil {
 			return DockerTarManifest{}, err
 		}
@@ -71,7 +103,7 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 		}
 		mh = im
 	}
-	err = saveManifest(mh, toPath, "image.json")
+	err = mh.saveManifest(toPath, "image.json")
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
@@ -193,16 +225,6 @@ func (p *Puller) authenticate(auth []string) error {
 		}
 	}
 	return fmt.Errorf("unable to parse auth param: %v", auth)
-}
-
-// saveManifest extracts the manifest from the passed 'ManifestHolder' and
-// saves it to a file with the passed name in the passed path.
-func saveManifest(mh ManifestHolder, toPath string, name string) error {
-	json, err := mh.ToString()
-	if err != nil {
-		return err
-	}
-	return saveFile([]byte(json), toPath, name)
 }
 
 // parseBearer parses the passed auth header which the caller should ensure is a bearer

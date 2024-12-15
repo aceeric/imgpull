@@ -34,7 +34,7 @@ type RegClient struct {
 	Client *http.Client
 	// Namespace supports pull-through
 	Namespace string
-	// AuthHeader supports the various auth types (basic, bearer)
+	// AuthHdr supports the various auth types (basic, bearer)
 	AuthHdr AuthHeader
 }
 

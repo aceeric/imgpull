@@ -1,8 +1,6 @@
 # Simple Container Image Puller
 
-This is a small project that **only** pulls OCI container images. The project was created as an exercise to understand the bare minimum required amount of code required for a feature-capable and robust image puller.
-
-The project builds a CLI that pulls images. It supports pulling from mirrors and pullthrough registries via a `--ns` (namespace) arg. Details are presented below.
+This project creates a small CLI that **only** pulls OCI container images. The project goal was to create a feature-capable and robust image puller with a minimalist code base.
 
 ## Quick Start
 
@@ -23,7 +21,7 @@ imgpull version: 1.1.0 build date: 2024-12-14T00:37:34.83Z
 
 ## Usage
 
-Two positional parameters are required: 1) an image reference and, 2) a tar file:
+**Two** positional parameters are required to pull an image tarball: 1) an image reference and, 2) a tar file:
 ```
 bin/imgpull [image ref] [tar file]
 ```
@@ -33,46 +31,48 @@ Example:
 bin/imgpull docker.io/hello-world:latest hello-world-latest.tar
 ```
 
+That's the simplest use case! Several options are supported:
+
 ## Options
 
-The following command-line options are supported:
+**`-o|--os [operating system]`**
 
-**`-o|--os [os]`**
-
-Specifies the operating system. If omitted, the code uses `runtime.GOOS` to determine your OS and will pull the image for that OS.
+Specifies the operating system of the image to pull. Most images in public registries are multi-platform images. Usually you want an image for your operating system. Therefore if you omit this, the CLI uses `runtime.GOOS` to determine your OS and will pull the image for that OS. Generally, this will be used in conjunction with the `--arch` param.
 
 Example:
 ```
-bin/imgpull docker.io/hello-world:latest hello-world-latest.tar --os linux
+bin/imgpull docker.io/hello-world:latest hello-world-latest.tar --os linux --arch amd64
 ```
+---
+**`-a|--arch [architecture]`**
 
-**`-a|--arch [arch]`**
-
-Specifies the architecture. If omitted, the code uses `runtime.GOARCH` to determine your architecture and will pull the image for that OS.
+Same idea as `--os` except specifies the architecture. If omitted, the code uses `runtime.GOARCH` to determine your architecture and will pull the image for that architecture. Generally, this will be used in conjunction with the `--os` param.
 
 Example:
 ```
 bin/imgpull docker.io/hello-world:latest hello-world-latest.tar --os linux --arch amd64
 ```
 
+---
 **`-n|--ns [namespace]`**
 
-Specifies a namespace. This supports pulling from mirroring / pull-through registries and is intended to pull the same way `containerd` does when you've configured `containerd` with a mirror.
+Specifies a namespace. The word _namespace_ in this context refers to a registry host name like `docker.io`, `registry.k8s.io`, `quay.io`, etc. This supports pulling from mirroring / pull-through registries and is intended to pull the same way `containerd` does when you've configured `containerd` mirroring.
 
 Example:
 ```
 bin/imgpull localhost:8080/curl/curl:8.10.1 quay.io-curl-8.1.0.1.tar --ns quay.io
 ```
 
-In this scenario, there is a pull-through or mirroring registry running on `localhost:8080`. When the image puller interacts with the registry via the V2 OCI Distribution Server API, it will append this namespace to the REST API calls as a query param. In other words, internally the CLI makes calls like:
+In this scenario, you have a pull-through or mirroring registry running on `localhost:8080`. When the CLI interacts with the registry via the V2 OCI Distribution Server REST API, it appends the namespace to the various REST API calls as a query param. In other words, internally the CLI makes calls like:
 ```
-https://localhost:8080/v2/curl/manifests/8.10.1?ns=quay.io
+https://localhost:8080/v2/curl/curl/manifests/8.10.1?ns=quay.io
 ```
 
 Note the query param: `?ns=quay.io`. The pull-through mirroring registry running on `localhost:8080` will check to see if `quay.io/curl/curl:8.10.1` is cached and if not, will pull and cache from the upstream `quay.io` registry. (Or the mirror will fail it only supports mirroring, and the desired image is not already cached.)
 
-For a highly configurable caching pull-through registry that supports this functionality, see https://github.com/aceeric/ociregistry.
+For a highly configurable, performant, and feature-rich caching pull-through OCI distribution server that supports this functionality, see: my distribution server: https://github.com/aceeric/ociregistry.
 
+---
 **`-u|--user [username]` `-p|--password [password]`**
 
 Specifies the username and password for basic auth.
@@ -82,55 +82,64 @@ Example:
 bin/imgpull docker.io/hello-world:latest hello-world-latest.tar\
   --user jqpubli --password mypass
 ```
+---
 **`-s|--scheme [scheme]`**
 
-Specifies the scheme. The CLI defaults to `https`.
+Specifies the scheme. The CLI defaults to `https`. Valid values are `http` and `https`.
 
 Example:
 ```
-bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar --scheme http
+bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar\
+  --scheme http
 ```
 
-This example pulls from a registry over http, rather than https.
+The example pulls from a registry over HTTP, rather than HTTPS.
 
+---
 **`-c|--cert [tls cert]` `-k|--key [tls key]`**
 
 Configures mTLS. By default, the CLI performs 1-way TLS using the OS trust store. You use these options to configure mTLS. The option values are paths to a PEM-encoded cert and key.
 
 Example:
 ```
-bin/imgpull my.private.mtls.registry/hello-world:latest hello-world-latest.tar\
+bin/imgpull my.mtls.registry/hello-world:latest hello-world-latest.tar\
   --cert /path/to/cert.pem --key /path/to/key.pem
 ```
 
+---
 **`-x|--cacert [tls ca cert]`**
 
-Configures verification of the server cert using a specified CA. This supports cases where the server presents certs that are not signed by the OS trust store. The option value is a path to a PEM-encoded CA or CA bundle.
+Configures verification of the server cert using a specified CA. By default, server certs are validated using the OS trust store. This parameter supports cases where the server presents certs that are **not** signed by the OS trust store. The option value is a path to a PEM-encoded CA or CA bundle file.
 
 Example:
 ```
-bin/imgpull my.private.mtls.registry/hello-world:latest hello-world-latest.tar\
+bin/imgpull my.private.registry/hello-world:latest hello-world-latest.tar\
   --ca /path/to/ca.pem
 ```
 
+---
 **`-i|--insecure`**
 
-Does not verify the server certs presented by the OCI distribution server if the connection to the server is over HTTPS (the default.) Use this option when the registry presents certs that are not signed by OS trust store, and you are unable to provide a CA using the `--cacert` option.
+Does not verify the server certs presented by the OCI distribution server if the connection to the server is over HTTPS (the default.) Use this option when the registry presents certs that are not signed by the OS trust store, and you are unable to provide a CA using the `--cacert` option.
 
 Example:
 ```
 bin/imgpull my.private.registry/hello-world:latest hello-world-latest.tar --insecure
 ```
 
-**`--parsed`**
+---
+**`-m|--manifest [type]`**
 
-Developer troubleshooting option. Prints the parsed command line and exits.
+Displays the manifest to the console rather than downloading the image tarball. Valid values are `list` for the image list manifest, and `image` for the image manifest. If  you supply this param then the tarball positional param is ignored.
 
 Example:
 ```
-bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar --cacert /path/to/ca.pem --parsed
+bin/imgpull docker.io/hello-world:latest --manifest list
 ```
 
+> Not every image repository provides an image list manifest. If the image is not multi-platform then an image list manifest won't be available. In that case if you ask for an image list manifest (and it's not provided by the server) the CLI will display an error message to this effect.
+
+---
 **`-v|--version`**
 
 Prints the version and exits.
@@ -140,6 +149,7 @@ Example:
 bin/imgpull --version
 ```
 
+---
 **`-h|--help`**
 
 Prints the help and exits.
@@ -149,10 +159,47 @@ Example:
 bin/imgpull --help
 ```
 
+---
+**`--parsed`**
+
+This is a developer troubleshooting option that prints the parsed command line and exits.
+
+Example:
+```
+bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar --cacert /path/to/ca.pem --parsed
+```
+
 ## Examples
 
-```
-bin/imgpull docker.io/hello-world:latest ./hello-world.tar -o linux -a amd64
-```
-
-Pulls the image for linux/amd64 to hello-world.tar in the working directory.
+1. Pull the image for `linux/amd64` to `hello-world.tar` in the working directory:
+   ```
+   bin/imgpull docker.io/hello-world:latest ./hello-world.tar -o linux -a amd64
+   ```
+1. Show the image manifest for the system OS and architecture
+   ```
+   bin/imgpull docker.io/hello-world:latest --manifest image
+   ```
+1. Pull with mTLS
+   ```
+   bin/imgpull docker.io/hello-world:latest --cert ~/mycert.pem --key ~/mykey.pem 
+   ```
+1. Pull with a custom CA
+   ```
+   bin/imgpull docker.io/hello-world:latest --cacert ~/myca.pem
+   ```
+1. Pull without server cert verification
+   ```
+   bin/imgpull docker.io/hello-world:latest --insecure
+   ```
+1. Pull with basic auth
+   ```
+   bin/imgpull docker.io/hello-world:latest --user foobar --password frobozz
+   ```
+1. Pull using http
+   ```
+   bin/imgpull localhost:8080/hello-world:latest --scheme http
+   ```
+1. Pull from a mirror
+   ```
+   bin/imgpull localhost:8080/hello-world:latest --ns docker.io
+   ```
