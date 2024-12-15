@@ -48,7 +48,9 @@ var allManifestTypes []string = []string{
 }
 
 // calls the 'v2' endpoint which typically either returns OK or unauthorized. It is the first
-// API call made to an OCI Distribution server to initiate an image pull.
+// API call made to an OCI Distribution server to initiate an image pull. Returns the http
+// status code, an array of auth headers (which could be empty), and an error if one occurred
+// or nil.
 func (c RegClient) v2() (int, []string, error) {
 	url := fmt.Sprintf("%s/v2/", c.ImgRef.ServerUrl())
 	resp, err := c.Client.Head(url)

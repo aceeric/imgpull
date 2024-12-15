@@ -1,7 +1,7 @@
 
+unit tests
 create locks on blob files
 check of blob file already exists
 configurable locations for interim files
 all errors print the image ref - minimall review all errors
 visibility - upper lower etc
-unit tests - USE MOCK!
