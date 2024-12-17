@@ -78,11 +78,12 @@ func (o PullerOpts) configureTls() (*tls.Config, error) {
 		}
 	}
 	if o.CaCert != "" {
-		cp := x509.NewCertPool()
 		if caCert, err := os.ReadFile(o.CaCert); err != nil {
 			return nil, err
 		} else {
+			cp := x509.NewCertPool()
 			cp.AppendCertsFromPEM(caCert)
+			cfg.RootCAs = cp
 			hasCfg = true
 		}
 	}
