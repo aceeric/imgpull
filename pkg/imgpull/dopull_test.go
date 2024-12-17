@@ -3,6 +3,7 @@ package imgpull
 import (
 	"fmt"
 	"imgpull/mock"
+	"os"
 	"testing"
 )
 
@@ -35,14 +36,19 @@ func TestAuthParse(t *testing.T) {
 }
 
 func TestPullManifest(t *testing.T) {
-	server, url := mock.Server(mock.NewMockParams(mock.BEARER, mock.ONEWAY_INSECURE))
+	mp := mock.NewMockParams(mock.BEARER, mock.ONEWAY_SECURE)
+	server, url := mock.Server(mp)
 	defer server.Close()
+	d, _ := os.MkdirTemp("", "")
+	caCert := mp.Certs.CaToFile(d, "ca.crt")
+	defer os.RemoveAll(d)
 	pullOpts := PullerOpts{
 		Url:      fmt.Sprintf("%s/hello-world:latest", url),
 		Scheme:   "https",
 		OStype:   "linux",
 		ArchType: "amd64",
 		Insecure: true,
+		CaCert:   caCert,
 	}
 	p, err := NewPullerWith(pullOpts)
 	if err != nil {

@@ -23,11 +23,11 @@ type PullerOpts struct {
 	Username string
 	// Username is the Password for basic auth.
 	Password string
-	// TlsCert is the client pki certificate for mTLS.
+	// TlsCert is the path on the file system to a client pki certificate for mTLS.
 	TlsCert string
-	// TlsKey is the client pki key for mTLS.
+	// TlsKey is the path on the file system to a client pki key for mTLS.
 	TlsKey string
-	// CaCert is the client CA if the host truststore cannot verify the
+	// CaCert is the path on the file system to a client CA if the host truststore cannot verify the
 	// server cert.
 	CaCert string
 	// Insecure skips server cert validation for the upstream registry (https-only)
