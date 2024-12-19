@@ -57,9 +57,7 @@ type fileToLoad struct {
 }
 
 // NewMockParams returns a 'MockParams' instance from the passed args.
-// We don't worry about cert verification in mTLS - we just want to test the mechanics
-// of requiring certs from the client.
-func NewMockParams(auth AuthType, tt TlsType) MockParams {
+func NewMockParams(auth AuthType, tt TlsType, certSetup CertSetup) MockParams {
 	mp := MockParams{
 		Auth:      auth,
 		TlsConfig: &tls.Config{},
@@ -70,19 +68,15 @@ func NewMockParams(auth AuthType, tt TlsType) MockParams {
 	}
 	// tls from here down
 	mp.Scheme = HTTPS
-	cs, err := certSetup()
-	if err != nil {
-		panic(err)
-	}
 	mp.TlsConfig = &tls.Config{}
 	// if any TLS, the server will present certs
-	mp.TlsConfig.Certificates = []tls.Certificate{cs.ServerCert}
+	mp.TlsConfig.Certificates = []tls.Certificate{certSetup.ServerCert}
 	if tt == ONEWAY_INSECURE || tt == ONEWAY_SECURE {
 		mp.TlsConfig.ClientAuth = tls.NoClientCert
 	} else {
 		mp.TlsConfig.ClientAuth = tls.RequireAnyClientCert
 	}
-	mp.Certs = cs
+	mp.Certs = certSetup
 	return mp
 }
 
@@ -133,7 +127,7 @@ func Server(params MockParams) (*httptest.Server, string) {
 					w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
 					w.Header().Set("Www-Authenticate", authHdr)
 					w.WriteHeader(http.StatusUnauthorized)
-					w.Write([]byte(`{"errors":[{"code":"UNAUTHORIZED","message":"authentication required","detail":null}]}`))
+					w.Write(body)
 				}
 			}
 		} else if p == "/v2/auth" {

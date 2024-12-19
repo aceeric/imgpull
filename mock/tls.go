@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"math/big"
 	"net"
 	"os"
@@ -17,7 +18,8 @@ import (
 
 // TlsType specifies the supported TLS types. This is used by the puller to
 // configure its TLS and by the mock server to configure its TLS. So these values are
-// interpreted differently depending on perspective (mock server vs. puller).
+// interpreted differently depending on perspective (mock server vs. puller). None
+// of the tests involve the server verifying client certs at this time.
 type TlsType int
 
 const (
@@ -59,38 +61,47 @@ type CertSetup struct {
 }
 
 // CaToFile serializes the CA Certificate in the receiver to a file named 'fileName'
-// at the passed 'path'.
+// at the passed 'path' if it does not already exist. In all cases the full path and
+// filename are returned to the caller.
 func (cs CertSetup) CaToFile(path, fileName string) string {
 	p := filepath.Join(path, fileName)
-	if err := os.WriteFile(p, cs.CaPEM.Bytes(), 0644); err != nil {
-		panic(err)
+	if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
+		if err := os.WriteFile(p, cs.CaPEM.Bytes(), 0644); err != nil {
+			panic(err)
+		}
 	}
 	return p
 }
 
 // ClientCertToFile serializes the client cert in the receiver to a file named 'fileName'
-// at the passed 'path'.
+// at the passed 'path' if it does not already exist. In all cases the full path and
+// filename are returned to the caller.
 func (cs CertSetup) ClientCertToFile(path, fileName string) string {
 	p := filepath.Join(path, fileName)
-	if err := os.WriteFile(p, cs.ClientCertPEM.Bytes(), 0644); err != nil {
-		panic(err)
+	if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
+		if err := os.WriteFile(p, cs.ClientCertPEM.Bytes(), 0644); err != nil {
+			panic(err)
+		}
 	}
 	return p
 }
 
 // ClientCertPrivKeyToFile serializes the client cert's key in the receiver to a file named 'fileName'
-// at the passed 'path'.
+// at the passed 'path' if it does not already exist. In all cases the full path and
+// filename are returned to the caller.
 func (cs CertSetup) ClientCertPrivKeyToFile(path, fileName string) string {
 	p := filepath.Join(path, fileName)
-	if err := os.WriteFile(p, cs.ClientCertPrivKeyPEM.Bytes(), 0644); err != nil {
-		panic(err)
+	if _, err := os.Stat(p); errors.Is(err, os.ErrNotExist) {
+		if err := os.WriteFile(p, cs.ClientCertPrivKeyPEM.Bytes(), 0644); err != nil {
+			panic(err)
+		}
 	}
 	return p
 }
 
-// certSetup was adapted from https://gist.github.com/shaneutt/5e1995295cff6721c89a71d13a71c251
+// NewCertSetup was adapted from https://gist.github.com/shaneutt/5e1995295cff6721c89a71d13a71c251
 // It returns a fully-populated 'CertSetup' struct, or an error.
-func certSetup() (CertSetup, error) {
+func NewCertSetup() (CertSetup, error) {
 	cs := CertSetup{}
 	caCert, caPrivKey, caPEM, err := createCACert()
 	if err != nil {
@@ -113,7 +124,7 @@ func certSetup() (CertSetup, error) {
 }
 
 // createCertItems returns 1) a tls.Certificate, 2) the same certificate PEM-encoded, and 3) the PEM-encoded
-// private key for the tls.Certificate from the passed x509.Certificate and CA private key
+// private key for the tls.Certificate from the passed CA Certificate and CA private key
 func createCertItems(cert x509.Certificate, caCert x509.Certificate, caPrivKey *rsa.PrivateKey) (tls.Certificate, *bytes.Buffer, *bytes.Buffer, error) {
 	pk, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -166,7 +177,7 @@ func createCACert() (x509.Certificate, *rsa.PrivateKey, *bytes.Buffer, error) {
 // newX509 returns a new x509 cert with the passed common name. If isCA is true then a CA
 // cert is generated, otherwise a non-CA cert.
 func newX509(cn string, isCA bool) x509.Certificate {
-	keyUsage := x509.KeyUsageDigitalSignature
+	keyUsage := x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment
 	if isCA {
 		keyUsage |= x509.KeyUsageCertSign
 	}
@@ -175,11 +186,13 @@ func newX509(cn string, isCA bool) x509.Certificate {
 		Subject: pkix.Name{
 			CommonName: cn,
 		},
-		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-		NotBefore:    time.Now(),
-		NotAfter:     time.Now().AddDate(10, 0, 0),
-		SubjectKeyId: []byte{1, 2, 3, 4, 6},
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:     keyUsage,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		SubjectKeyId:          []byte{1, 2, 3, 4, 6},
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		KeyUsage:              keyUsage,
 	}
 }

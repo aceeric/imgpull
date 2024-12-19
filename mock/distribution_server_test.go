@@ -14,7 +14,7 @@ var re = regexp.MustCompile(srch)
 
 // Sanity check the mock OCI distribution server
 func TestServer(t *testing.T) {
-	server, url := Server(NewMockParams(NONE, NOTLS))
+	server, url := Server(NewMockParams(NONE, NOTLS, CertSetup{}))
 	defer server.Close()
 
 	URLs := make([]string, 4)

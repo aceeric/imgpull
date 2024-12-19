@@ -9,7 +9,7 @@ import (
 )
 
 func TestV2(t *testing.T) {
-	server, url := mock.Server(mock.NewMockParams(mock.BEARER, mock.NOTLS))
+	server, url := mock.Server(mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{}))
 	defer server.Close()
 	pullOpts := PullerOpts{
 		Url:      fmt.Sprintf("%s/hello-world:latest", url),
