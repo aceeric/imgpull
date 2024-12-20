@@ -19,7 +19,9 @@ import (
 // TlsType specifies the supported TLS types. This is used by the puller to
 // configure its TLS and by the mock server to configure its TLS. So these values are
 // interpreted differently depending on perspective (mock server vs. puller). None
-// of the tests involve the server verifying client certs at this time.
+// of the tests involve the server verifying client certs at this time. Also at this
+// time, testing the puller validating the server certs using the OS trust store is
+// not tested.
 type TlsType int
 
 const (
@@ -32,12 +34,12 @@ const (
 	// server will not request certs. Server certs will be validated by puller. Therefore
 	// puller will need the test CA Cert.
 	ONEWAY_SECURE
-	// Mock server will present certs to puller. Puller will present certs. Mock server
-	// will request (any) cert. Server certs will not be validated by puller. Therefore
+	// Mock server will present certs to puller. Puller will present certs to server. Mock
+	// server will request (any) cert. Server certs will not be validated by puller. Therefore
 	// puller will not need the test CA Cert. Server will not validate client certs.
 	MTLS_INSECURE
-	// Mock server will present certs to puller. Puller will present certs. Mock server
-	// will request (any) cert. Server certs will be validated by puller. Therefore
+	// Mock server will present certs to puller. Puller will present certs to server. Mock
+	// server will request (any) cert. Server certs will be validated by puller. Therefore
 	// puller will need the test CA Cert. Server will not validate client certs.
 	MTLS_SECURE
 )
@@ -123,8 +125,8 @@ func NewCertSetup() (CertSetup, error) {
 	return cs, nil
 }
 
-// createCertItems returns 1) a tls.Certificate, 2) the same certificate PEM-encoded, and 3) the PEM-encoded
-// private key for the tls.Certificate from the passed CA Certificate and CA private key
+// createCertItems returns 1) a tls.Certificate created from the passed 'cert' arg, 2) the same
+// certificate PEM-encoded, and 3) the PEM-encoded private key for the tls.Certificate in #1
 func createCertItems(cert x509.Certificate, caCert x509.Certificate, caPrivKey *rsa.PrivateKey) (tls.Certificate, *bytes.Buffer, *bytes.Buffer, error) {
 	pk, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -186,7 +188,7 @@ func newX509(cn string, isCA bool) x509.Certificate {
 		Subject: pkix.Name{
 			CommonName: cn,
 		},
-		IsCA:                  true,
+		IsCA:                  isCA,
 		BasicConstraintsValid: true,
 		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		NotBefore:             time.Now(),

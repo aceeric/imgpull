@@ -6,11 +6,9 @@ ROOT        := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 all:
 	@echo Run 'make help' to see a list of available targets
 
-#.PHONY: test
-#test:
-#	go test -count=1 ociregistry/cmd ociregistry/impl/extractor ociregistry/impl/helpers ociregistry/impl/memcache\
-#	  ociregistry/impl/preload ociregistry/impl/pullrequest ociregistry/impl/serialize ociregistry/impl/upstream\
-#	  ociregistry/impl ociregistry/mock
+.PHONY: test
+test:
+	go test $(ROOT)/pkg/imgpull
 
 .PHONY: imgpull
 imgpull:

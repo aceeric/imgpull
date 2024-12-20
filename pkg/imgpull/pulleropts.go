@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"runtime"
 	"slices"
 	"strings"
 )
@@ -17,11 +18,11 @@ type PullerOpts struct {
 	Scheme string
 	// OStype is the operating system type, e.g.: 'linux'.
 	OStype string
-	// OSType is the architecture, e.g.: 'amd64'.
+	// ArchType is the architecture, e.g.: 'amd64'.
 	ArchType string
 	// Username is the user name for basic auth.
 	Username string
-	// Username is the Password for basic auth.
+	// Password is the Password for basic auth.
 	Password string
 	// TlsCert is the path on the file system to a client pki certificate for mTLS.
 	TlsCert string
@@ -32,10 +33,22 @@ type PullerOpts struct {
 	CaCert string
 	// Insecure skips server cert validation for the upstream registry (https-only)
 	Insecure bool
-	// Namespace supports pull-through, i.e. pull 'localhost:5000/hello-world:latest'
-	// with Namespace 'docker.io' to pull through localhost to dockerhub if you
-	// have a pull-through registry that supports that.
+	// Namespace supports pull-through and mirroring, i.e. pull 'localhost:5000/hello-world:latest'
+	// with Namespace 'docker.io' to pull from localhost if localhost is a mirror
+	// or a pull-through registry.
 	Namespace string
+}
+
+// NewPullerOpts is a convenience function that initializes and returns a PullerOpts struct
+// for the most common use case: https to the upstream distribution server, and OS and
+// architecture based on your system.
+func NewPullerOpts(url string) PullerOpts {
+	return PullerOpts{
+		Url:      url,
+		Scheme:   "https",
+		OStype:   runtime.GOOS,
+		ArchType: runtime.GOARCH,
+	}
 }
 
 // validate performs option validation and returns an error if any options are

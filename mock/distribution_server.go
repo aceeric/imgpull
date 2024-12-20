@@ -56,7 +56,7 @@ type fileToLoad struct {
 	strip bool
 }
 
-// NewMockParams returns a 'MockParams' instance from the passed args.
+// NewMockParams returns a 'MockParams' struct from the passed args.
 func NewMockParams(auth AuthType, tt TlsType, certSetup CertSetup) MockParams {
 	mp := MockParams{
 		Auth:      auth,
@@ -81,7 +81,7 @@ func NewMockParams(auth AuthType, tt TlsType, certSetup CertSetup) MockParams {
 }
 
 // Server runs the mock OCI distribution server. It returns a ref to the server, and a
-// server url (without the scheme).
+// server url (without the scheme - like 'localhost:12345').
 func Server(params MockParams) (*httptest.Server, string) {
 	var err error
 	testFilesDir := getTestFilesDir()

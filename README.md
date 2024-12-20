@@ -2,7 +2,16 @@
 
 This project creates a small CLI that **only** pulls OCI container images. The project goal was to create a feature-capable and robust image puller with a minimalist code base.
 
-## Quick Start
+The project can be used as a CLI, or, as a library.
+
+---
+
+**Table of Contents**
+
+- [Quick Start - CLI](#quick-start---cli)
+- [Quick Start - Library](#quick-start---library)
+
+## Quick Start - CLI
 
 After git cloning the project, build the CLI:
 ```
@@ -19,7 +28,7 @@ Success looks like (date and version will differ):
 imgpull version: 1.1.0 build date: 2024-12-14T00:37:34.83Z
 ```
 
-## Usage
+### Usage
 
 **Two** positional parameters are required to pull an image tarball: 1) an image reference and, 2) a tar file:
 ```
@@ -33,7 +42,7 @@ bin/imgpull docker.io/hello-world:latest hello-world-latest.tar
 
 That's the simplest use case! Several options are supported:
 
-## Options
+### Options
 
 **`-o|--os [operating system]`**
 
@@ -120,7 +129,7 @@ bin/imgpull my.private.registry/hello-world:latest hello-world-latest.tar\
 ---
 **`-i|--insecure`**
 
-Does not verify the server certs presented by the OCI distribution server if the connection to the server is over HTTPS (the default.) Use this option when the registry presents certs that are not signed by the OS trust store, and you are unable to provide a CA using the `--cacert` option.
+Does not verify the server certs presented by the OCI distribution server if the connection to the server is over HTTPS (the default.) Use this option when the registry presents a server cert that is not signed by the OS trust store, and you are unable to provide a CA using the `--cacert` option.
 
 Example:
 ```
@@ -130,7 +139,7 @@ bin/imgpull my.private.registry/hello-world:latest hello-world-latest.tar --inse
 ---
 **`-m|--manifest [type]`**
 
-Displays the manifest to the console rather than downloading the image tarball. Valid values are `list` for the image list manifest, and `image` for the image manifest. If  you supply this param then the tarball positional param is ignored.
+Displays the manifest to the console rather than downloading the image tarball. Valid values are `list` for the image list manifest, and `image` for the image manifest. If  you supply this param then the tarball positional param is ignored and can be omitted.
 
 Example:
 ```
@@ -162,14 +171,14 @@ bin/imgpull --help
 ---
 **`--parsed`**
 
-This is a developer troubleshooting option that prints the parsed command line and exits.
+This is a developer troubleshooting option that prints the parsed command line without acting on the params, and then exits.
 
 Example:
 ```
 bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar --cacert /path/to/ca.pem --parsed
 ```
 
-## Examples
+### Examples
 
 1. Pull the image for `linux/amd64` to `hello-world.tar` in the working directory:
    ```
@@ -203,3 +212,58 @@ bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar -
    ```
    bin/imgpull localhost:8080/hello-world:latest --ns docker.io
    ```
+
+## Library
+
+The project was designed for the code to be easily used as a library. For example:
+
+```
+package main
+
+import (
+    "fmt"
+    "imgpull/pkg/imgpull"
+)
+
+func main() {
+    image := "docker.io/hello-world:latest"
+    puller, err := imgpull.NewPullerWith(imgpull.NewPullerOpts(image))
+    if err != nil {
+        fmt.Println(err)
+        return
+    } else if err := puller.PullTar("./hello-world.tar"); err != nil {
+        fmt.Println(err)
+    }
+}
+```
+
+Or, suppose you're pulling from a private registry that presents a cert signed by a CA that isn't included in the OS trust store:
+```
+    ...
+    opts := imgpull.PullerOpts{
+        Url:      "docker.io/hello-world:latest",
+        Scheme:   "https",
+        OStype:   "linux",
+        ArchType: "amd64",
+        CaCert:   "/path/to/ca.pem",
+    }
+    p, err := imgpull.NewPullerWith(opts)
+```
+
+You can see that the `imgpull.PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. You can initialize a struct directly, or, use the `NewPullerOpts` function which minimally configures the options with the image url, HTTPS, and the OS and architecture matching your system. (The most common use case.)
+
+In fact the CLI params simply map to the fields in the `imgpull.PullerOpts` struct:
+
+| Struct Member | Command line option | Setting the struct member | Using the CLI |
+|-|-|-|-|
+| `Url` | Positional param one | `Url: "docker.io/hello-world:latest"` | `imgpull docker.io/hello-world:latest` |
+| `Scheme` | `-s\|--scheme [scheme]` | `Scheme: "http"` | `--scheme http` |
+| `OStype` | `-o\|--os [operating system]` | `OStype: "linux"` | `--os linux` |
+| `ArchType` | `-a\|--arch [architecture]` | `ArchType: "amd64"` | `--arch amd64` |
+| `Username` | `-u\|--user [username]` | `Username: "foo"` | `--user foo` |
+| `Password` | `-p\|--password [password]` | `Password: "bar"` | `--password bar` |
+| `TlsCert` | `-c\|--cert [tls cert]` | `TlsCert: "/path/to/client-cert.pem"` | `--cert /path/to/client-cert.pem` |
+| `TlsKey` | `-k\|--key [tls key]` | `TlsKey: "/path/to/client-key.pem"` | `--key /path/to/client-key.pem` |
+| `CaCert` | `-x\|--cacert [tls ca cert]` | `CaCert: "/path/to/ca-cert.pem"` | `--cacert /path/to/ca-cert.pem` |
+| `Insecure` | `-i\|--insecure` | `Insecure: true` | `--insecure` |
+| `Namespace` | `-n\|--ns [namespace]` | `Namespace: "docker.io"` | `--ns docker.io` |

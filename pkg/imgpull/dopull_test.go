@@ -55,6 +55,7 @@ func TestBasicCreds(t *testing.T) {
 			if expected != actual {
 				t.Fail()
 			}
+			w.WriteHeader(http.StatusOK)
 		} else {
 			authUrl := `Basic realm="%s://%s"`
 			authHdr := fmt.Sprintf(authUrl, "http", r.Host)
@@ -64,8 +65,6 @@ func TestBasicCreds(t *testing.T) {
 			w.Header().Set("Www-Authenticate", authHdr)
 			w.WriteHeader(http.StatusUnauthorized)
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"value":"fixed"}`))
 	}))
 	defer server.Close()
 

@@ -16,7 +16,7 @@ var (
 )
 
 // optName is a unique option name. E.g. if "--user" is a supported
-// cmdline option, then we would expect an optName "user".
+// cmdline option, then we would expect an optName = "user".
 type optName string
 
 // opt defines a command line option. The Name is intended to be used as its
@@ -35,22 +35,38 @@ type opt struct {
 
 // All the supported options
 const (
-	imageOpt     optName = "image"
-	destOpt      optName = "dest"
-	osOpt        optName = "os"
-	archOpt      optName = "arch"
+	// positional param one - the image url
+	imageOpt optName = "image"
+	// positional param two - the tarball to save the image to
+	destOpt optName = "dest"
+	// --os linux
+	osOpt optName = "os"
+	// --arch amd64
+	archOpt optName = "arch"
+	// --ns docker.op
 	namespaceOpt optName = "namespace"
-	usernameOpt  optName = "user"
-	passwordOpt  optName = "password"
-	schemeOpt    optName = "scheme"
-	certOpt      optName = "cert"
-	keyOpt       optName = "key"
-	caOpt        optName = "cacert"
-	insecureOpt  optName = "insecure"
-	manifestOpt  optName = "manifest"
-	versionOpt   optName = "version"
-	helpOpt      optName = "help"
-	parsedOpt    optName = "parsed"
+	// --user jqpubli
+	usernameOpt optName = "user"
+	// --password mypassword
+	passwordOpt optName = "password"
+	// --scheme [http | https]
+	schemeOpt optName = "scheme"
+	// --cert /path/to/client-cert.pem
+	certOpt optName = "cert"
+	// --key /path/to/client-key.pem
+	keyOpt optName = "key"
+	// --cacert /path/to/ca.pem
+	caOpt optName = "cacert"
+	// --insecure
+	insecureOpt optName = "insecure"
+	// --manifest [list | image]
+	manifestOpt optName = "manifest"
+	// --version
+	versionOpt optName = "version"
+	// --help
+	helpOpt optName = "help"
+	// --parsed
+	parsedOpt optName = "parsed"
 )
 
 // optMap holds the parsed command line
@@ -67,17 +83,23 @@ imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
 The image ref is required. Tar file is required if pulling a tarball. Everything else is
 optional. The OS and architecture default to your system's values.
 
-Example:
+Example 1:
 
 imgpull docker.io/hello-world:latest ./hello-world.latest.tar
 
 The example pulls the image to hello-world.latest.tar in the working directory using the
 operating system and architecture of the current system.
+
+Example 2:
+
+imgpull docker.io/hello-world:latest --manifest list
+
+The example pulls the manifest list for hello-world:latest and displays it to the console.
 `
 
 // parseArgs parses and validates the command line parameters and options, returning them in a map.
-// Only validations within the scope of the command line are validated. For example whether the URL
-// is valid or not is determined by the Puller.
+// Only validations within the scope of the command line are validated. For example whether or not
+// the URL is valid is not done here - that is determined by the Puller.
 func parseArgs() (optMap, error) {
 	opts := optMap{
 		imageOpt:     {Name: imageOpt},
@@ -114,6 +136,7 @@ func parseArgs() (optMap, error) {
 				break
 			}
 		}
+		// handle positional params left to right
 		if !parsed {
 			if opts[imageOpt].Value == "" {
 				opts.setVal(imageOpt, os.Args[i])
@@ -147,7 +170,7 @@ func parseArgs() (optMap, error) {
 	return opts, nil
 }
 
-// pullerOptsFrom returns the passed map containing parsed args in a
+// pullerOptsFrom returns the passed map containing parsed args as a
 // 'PullerOpts' struct.
 func pullerOptsFrom(opts optMap) imgpull.PullerOpts {
 	insecure, _ := strconv.ParseBool(opts.getVal(insecureOpt))
@@ -249,7 +272,7 @@ func showVersionAndExit(opts optMap) {
 }
 
 // showParsedAndExit is a debug function that dumps the options map to the console
-// in kind of ugly format for troubleshooting.
+// in kind of an ugly format for troubleshooting.
 func showParsedAndExit(opts optMap) {
 	for name, opt := range opts {
 		fmt.Printf("%s: %+v\n", name, opt)

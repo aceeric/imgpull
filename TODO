@@ -1,5 +1,6 @@
 
 unit tests
+put tarfile name in puller opts?
 create locks on blob files
 check of blob file already exists
 configurable locations for interim files
