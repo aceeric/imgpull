@@ -85,9 +85,10 @@ func TestBasicCreds(t *testing.T) {
 }
 
 // TestPullManifests pulls hello-world:latest manifest list and image manifest from the mock
-// server with all permutations of auth and TLS supported by the CLS **except** for server
+// server with all permutations of auth and TLS supported by the CLI **except** for server
 // cert verification from the OS trust store because that would require mocking the OS trust
-// store OR getting a cert signed by a CA in the OS trust store.
+// store OR getting a cert signed by a CA in the OS trust store or adding a fake cert that signed
+// a test CA into the OS trust store.
 func TestPullManifest(t *testing.T) {
 	authTypes := []mock.AuthType{mock.BASIC, mock.BEARER, mock.NONE}
 	tlsTypes := []mock.TlsType{mock.NOTLS, mock.ONEWAY_INSECURE, mock.ONEWAY_SECURE, mock.MTLS_INSECURE, mock.MTLS_SECURE}

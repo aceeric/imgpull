@@ -32,11 +32,11 @@ type PullOpt func(*PullerOpts)
 // you need to pull from an http registry instead. Then:
 //
 //	http := func() PullOpt {
-//		return func(p *PullerOpts) {
+//		return func(p *imgpull.PullerOpts) {
 //			p.Scheme = "http"
 //		}
 //	}
-//	p, err := NewPuller("my.http.registry:5000/hello-world:latest", http())
+//	p, err := imgpull.NewPuller("my.http.registry:5000/hello-world:latest", http())
 func NewPuller(url string, opts ...PullOpt) (Puller, error) {
 	o := PullerOpts{
 		Url:    url,
@@ -61,11 +61,9 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 		c := http.DefaultClient
 		if cfg, err := o.configureTls(); err != nil {
 			return Puller{}, err
-		} else {
-			if cfg != nil {
-				c.Transport = &http.Transport{
-					TLSClientConfig: cfg,
-				}
+		} else if cfg != nil {
+			c.Transport = &http.Transport{
+				TLSClientConfig: cfg,
 			}
 		}
 		return Puller{

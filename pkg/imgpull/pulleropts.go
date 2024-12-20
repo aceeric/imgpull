@@ -38,7 +38,7 @@ type PullerOpts struct {
 	Namespace string
 }
 
-// validate performed option validation and returns an error if any options are
+// validate performs option validation and returns an error if any options are
 // invalid.
 func (o PullerOpts) validate() error {
 	if !o.validateOsAndArch() {
