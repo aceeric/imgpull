@@ -10,7 +10,7 @@ type Puller struct {
 	// Opts defines all the configurable behaviors of the puller.
 	Opts PullerOpts
 	// ImgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
-	ImgRef ImageRef
+	ImgRef imageRef
 	// Client is the HTTP client
 	Client *http.Client
 	// If the upstream requires bearer auth, this is the token received from
@@ -55,7 +55,7 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 	if err := o.validate(); err != nil {
 		return Puller{}, err
 	}
-	if ir, err := NewImageRef(o.Url, o.Scheme); err != nil {
+	if ir, err := newImageRef(o.Url, o.Scheme); err != nil {
 		return Puller{}, err
 	} else {
 		c := http.DefaultClient

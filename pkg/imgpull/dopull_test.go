@@ -78,7 +78,7 @@ func TestBasicCreds(t *testing.T) {
 	}
 	if p, err := NewPullerWith(pullOpts); err != nil {
 		t.Fail()
-	} else if err := p.Connect(); err != nil {
+	} else if err := p.connect(); err != nil {
 		t.Fail()
 	}
 }

@@ -35,7 +35,7 @@ func (p *Puller) PullTar(dest string) error {
 // PullManifest pulls an image manifest or an image list manifest based on the value
 // of the 'mpt' arg.
 func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
-	if err := p.Connect(); err != nil {
+	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
 	rc := p.regCliFrom()
@@ -74,13 +74,11 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 //  4. The blobs, including the configuration blob.
 //
 // In other words everything needed to create a tarball that looks like a
-// 'docker save' tarball.
-//
-// The image list manifest and the image manifest don't get included in the
-// image tarball but they are populated in the directory in case the caller
-// wants them.
+// 'docker save' tarball. This is intended as a lower-level function in which
+// the caller doesn't want a tarball - they want all the manifests and blobs
+// with direct access.
 func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
-	if err := p.Connect(); err != nil {
+	if err := p.connect(); err != nil {
 		return DockerTarManifest{}, err
 	}
 	rc := p.regCliFrom()
@@ -135,7 +133,7 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 // media type and manifest size, as provided by the upstream distribution
 // server.
 func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
-	if err := p.Connect(); err != nil {
+	if err := p.connect(); err != nil {
 		return ManifestDescriptor{}, err
 	}
 	return p.regCliFrom().v2ManifestsHead()
@@ -148,7 +146,7 @@ func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
 // will be provided by the registry if available. Whatever the registry provides
 // is returned in a 'ManifestHolder' which holds all four supported manifest types.
 func (p *Puller) GetManifest() (ManifestHolder, error) {
-	if err := p.Connect(); err != nil {
+	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
 	return p.regCliFrom().v2Manifests("")
@@ -159,13 +157,13 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 // function always returns an image manifest if one is available matching the
 // passed digest.
 func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
-	if err := p.Connect(); err != nil {
+	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
 	return p.regCliFrom().v2Manifests(digest)
 }
 
-// Connect calls the 'v2' endpoint and looks for an auth header. If an auth
+// connect calls the 'v2' endpoint and looks for an auth header. If an auth
 // header is provided by the remote registry then this function will attempt
 // to negotiate the auth handshake for Bearer if the remote requests it, or
 // Basic using the user/pass in the receiver. Once successfully authenticated,
@@ -174,7 +172,7 @@ func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
 //
 // If the function has already been called on the receiver, it immediately
 // returns taking no action.
-func (p *Puller) Connect() error {
+func (p *Puller) connect() error {
 	if p.Connected {
 		return nil
 	}
@@ -235,14 +233,14 @@ func (p *Puller) authenticate(auth []string) error {
 // headers, then the Connect function must previously have been called on the receiver so
 // that the auth struct in the receiver is initialized by virtue of that call. The auth
 // struct is copied into the returned RegClient struct which is used to set auth headers.
-func (p *Puller) regCliFrom() RegClient {
-	c := RegClient{
-		ImgRef:    p.ImgRef,
-		Client:    p.Client,
-		Namespace: p.Opts.Namespace,
+func (p *Puller) regCliFrom() regClient {
+	c := regClient{
+		imgRef:    p.ImgRef,
+		client:    p.Client,
+		namespace: p.Opts.Namespace,
 	}
 	if k, v := p.authHdr(); k != "" {
-		c.AuthHdr = AuthHeader{
+		c.authHdr = authHeader{
 			key:   k,
 			value: v,
 		}

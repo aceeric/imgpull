@@ -5,43 +5,49 @@ import (
 	"strings"
 )
 
-type pullType int
+// imgPullType specifies whether pulling my tag or digest
+type imgPullType int
 
 const (
-	byTag pullType = iota
+	// Pull by tag
+	byTag imgPullType = iota
+	// Pull by digest
 	byDigest
 )
 
-// ImageRef has the components of an image reference. Documentation for
-// the individual fields shows how the struct would be initialized if
-// NewImageRef was called with url='foo.io/bar/baz:1.2.3', and scheme =
-// https.
-type ImageRef struct {
+// imageRef has the components of an image reference.
+type imageRef struct {
 	// e.g.: foo.io/bar/baz:v1.2.3
-	Raw string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'PullType' is 'byTag'
-	PullType pullType
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Registry' is 'foo.io'
-	Registry string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Server' is 'foo.io'
-	Server string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Repository' is 'bar/baz'
-	Repository string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Org' is 'bar'
-	Org string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Image' is 'baz'
-	Image string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Ref' is 'v1.2.3'
-	Ref string
-	// defaults to 'https' unless overridden
-	Scheme string
+	raw string
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'pullType' is 'byTag'
+	pullType imgPullType
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'registry' is 'foo.io'
+	registry string
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'server' is 'foo.io'
+	server string
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'repository' is 'bar/baz'
+	repository string
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'org' is 'bar'
+	org string
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'image' is 'baz'
+	image string
+	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'ref' is 'v1.2.3'
+	ref string
+	// 'http' or 'https'
+	scheme string
 }
 
-// NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
-// or docker.io/library/hello-world@sha256:...) into an 'ImageRef' struct. The url
+// ImageUrl returns the imageRef receiver URL-related content as an image reference suitable for
+// a 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'.
+func (ip *imageRef) ImageUrl() string {
+	return ip.imageUrlWithNs("")
+}
+
+// newImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
+// or docker.io/library/hello-world@sha256:...) into an 'imageRef' struct. The url
 // MUST begin with a registry hostname (e.g. quay.io) - it is not (and cannot be)
 // inferred.
-func NewImageRef(url, scheme string) (ImageRef, error) {
+func newImageRef(url, scheme string) (imageRef, error) {
 	org := ""
 	img := ""
 	ref := ""
@@ -66,12 +72,12 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 		org = parts[1]
 		img = parts[2]
 	} else {
-		return ImageRef{}, fmt.Errorf("unable to parse image url %q", url)
+		return imageRef{}, fmt.Errorf("unable to parse image url %q", url)
 	}
 
 	ref_separators := []struct {
 		separator string
-		pt        pullType
+		pt        imgPullType
 	}{
 		{separator: "@", pt: byDigest},
 		{separator: ":", pt: byTag},
@@ -89,29 +95,23 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 	}
 
 	if img == "" {
-		return ImageRef{}, fmt.Errorf("unable to parse image url: %q", url)
+		return imageRef{}, fmt.Errorf("unable to parse image url: %q", url)
 	}
 
-	return ImageRef{
-		Raw:        url,
-		PullType:   pt,
-		Registry:   registry,
-		Server:     server,
-		Repository: repository,
-		Org:        org,
-		Image:      img,
-		Ref:        ref,
-		Scheme:     scheme,
+	return imageRef{
+		raw:        url,
+		pullType:   pt,
+		registry:   registry,
+		server:     server,
+		repository: repository,
+		org:        org,
+		image:      img,
+		ref:        ref,
+		scheme:     scheme,
 	}, nil
 }
 
-// ImageUrl returns the ImageRef receiver URL-related content as an image reference suitable for
-// a 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'.
-func (ip *ImageRef) ImageUrl() string {
-	return ip.ImageUrlWithNs("")
-}
-
-// ImageUrlWithNs returns the ImageRef receiver URL-related content as an image reference suitable for
+// imageUrlWithNs returns the imageRef receiver URL-related content as an image reference suitable for
 // a 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'.
 //
 // If the namespace arg is non-empty then the function replaces the registry configured in the
@@ -123,35 +123,25 @@ func (ip *ImageRef) ImageUrl() string {
 // is to allow an image tarball to be pulled from a pull-through registry but have the
 // 'RepoTags' field in the tarball 'manifests.json' look like it was pulled from the registry
 // in the namespace rather than from a pull-through registry.
-func (ip *ImageRef) ImageUrlWithNs(namespace string) string {
+func (ip *imageRef) imageUrlWithNs(namespace string) string {
 	separator := ":"
-	reg := ip.Registry
+	reg := ip.registry
 	if namespace != "" {
 		reg = namespace
 	}
-	if strings.HasPrefix(ip.Ref, "sha256:") {
+	if strings.HasPrefix(ip.ref, SHA256PREFIX) {
 		separator = "@"
 	}
-	if ip.Org == "" {
-		return fmt.Sprintf("%s/%s%s%s", reg, ip.Image, separator, ip.Ref)
+	if ip.org == "" {
+		return fmt.Sprintf("%s/%s%s%s", reg, ip.image, separator, ip.ref)
 	}
-	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, ip.Ref)
+	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.org, ip.image, separator, ip.ref)
 }
 
-// deprecated - to be deleted
-//func (ip *ImageRef) ImageUrlWithDigest(digest string) string {
-//	separator := "@"
-//	reg := ip.Registry
-//	if ip.Org == "" {
-//		return fmt.Sprintf("%s/%s%s%s", reg, ip.Image, separator, digest)
-//	}
-//	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, digest)
-//}
-
-// ServerUrl handles the case where an image is pulled from docker.io but the package
-// has to access the DockerHub API on host registry.docker.io so the receiver would have
-// a 'Registry' value of docker.io and a 'Server' value of registry.docker.io. This function
+// serverUrl handles the case where an image is pulled from docker.io but the package
+// has to access the DockerHub API on host index.docker.io so the receiver would have
+// a 'Registry' value of docker.io and a 'Server' value of index.docker.io. This function
 // is used whenver API calls are made - to return 'Server'.
-func (ip *ImageRef) ServerUrl() string {
-	return fmt.Sprintf("%s://%s", ip.Scheme, ip.Server)
+func (ip *imageRef) serverUrl() string {
+	return fmt.Sprintf("%s://%s", ip.scheme, ip.server)
 }

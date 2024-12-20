@@ -18,24 +18,24 @@ const (
 	maxBlobBytes     = 100 * mebibytes
 )
 
-// AuthHeader is a key/value struct that supports creating and setting an auth
+// authHeader is a key/value struct that supports creating and setting an auth
 // header for the supported auth type (basic, bearer).
-type AuthHeader struct {
+type authHeader struct {
 	key   string
 	value string
 }
 
-// RegClient has everything needed to talk to an OCI Distribution server for the purposes
+// regClient has everything needed to talk to an OCI Distribution server for the purposes
 // of pulling an image.
-type RegClient struct {
-	// ImgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
-	ImgRef ImageRef
-	// Client is the HTTP client
-	Client *http.Client
-	// Namespace supports pull-through
-	Namespace string
-	// AuthHdr supports the various auth types (basic, bearer)
-	AuthHdr AuthHeader
+type regClient struct {
+	// imgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
+	imgRef imageRef
+	// client is the HTTP client
+	client *http.Client
+	// namespace supports pull-through
+	namespace string
+	// authHdr supports the various auth types (basic, bearer)
+	authHdr authHeader
 }
 
 // allManifestTypes lists all of the manifest types that this package
@@ -51,9 +51,9 @@ var allManifestTypes []string = []string{
 // API call made to an OCI Distribution server to initiate an image pull. Returns the http
 // status code, an array of auth headers (which could be empty), and an error if one occurred
 // or nil.
-func (c RegClient) v2() (int, []string, error) {
-	url := fmt.Sprintf("%s/v2/", c.ImgRef.ServerUrl())
-	resp, err := c.Client.Head(url)
+func (c regClient) v2() (int, []string, error) {
+	url := fmt.Sprintf("%s/v2/", c.imgRef.serverUrl())
+	resp, err := c.client.Head(url)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -67,11 +67,11 @@ func (c RegClient) v2() (int, []string, error) {
 // v2Basic calls the 'v2' endpoint with a basic auth header formed from
 // the username and password encoded in the passed string. If successful, the
 // credentials are returned to the caller for use on subsequent calls.
-func (c RegClient) v2Basic(encoded string) (BasicAuth, error) {
-	url := fmt.Sprintf("%s/v2/", c.ImgRef.ServerUrl())
+func (c regClient) v2Basic(encoded string) (BasicAuth, error) {
+	url := fmt.Sprintf("%s/v2/", c.imgRef.serverUrl())
 	req, _ := http.NewRequest(http.MethodHead, url, nil)
 	req.Header.Set("Authorization", "Basic "+encoded)
-	resp, err := c.Client.Do(req)
+	resp, err := c.client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -88,10 +88,10 @@ func (c RegClient) v2Basic(encoded string) (BasicAuth, error) {
 // realm and service. These are used to build the auth URL. The realm might be different
 // than the server that we have been requested to pull from.  If successful, the
 // bearer token is returned to the caller for use on subsequent calls.
-func (c RegClient) v2Auth(ba BearerAuth) (BearerToken, error) {
-	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, c.ImgRef.Repository, ba.Service)
+func (c regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
+	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, c.imgRef.repository, ba.Service)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	resp, err := c.Client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return BearerToken{}, err
 	}
@@ -114,11 +114,11 @@ func (c RegClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 // 'layer' arg. The blob is stored in the location specified by 'toPath'. The 'isConfig'
 // var indicates that the blob is a config blob. Objects are stored with their digest as the file
 // name.
-func (c RegClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
-	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", c.ImgRef.ServerUrl(), c.ImgRef.Repository, layer.Digest, c.nsQueryParm())
+func (c regClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
+	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", c.imgRef.serverUrl(), c.imgRef.repository, layer.Digest, c.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	c.setAuthHdr(req)
-	resp, err := c.Client.Do(req)
+	resp, err := c.client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -127,7 +127,7 @@ func (c RegClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
 	}
 	fName := filepath.Join(toPath, layer.Digest)
 	if !isConfig {
-		fName = strings.Replace(filepath.Join(fName+".tar.gz"), "sha256:", "", -1)
+		fName = strings.Replace(filepath.Join(fName+".tar.gz"), SHA256PREFIX, "", -1)
 	}
 	blobFile, err := os.Create(fName)
 	if err != nil {
@@ -160,16 +160,16 @@ func (c RegClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
 //
 // Generally speaking: pull by tag returns an image list from the registry if one is available and pull
 // by digest (SHA) returns an image manifest. But this might not be true all the time.
-func (c RegClient) v2Manifests(sha string) (ManifestHolder, error) {
-	ref := c.ImgRef.Ref
+func (c regClient) v2Manifests(sha string) (ManifestHolder, error) {
+	ref := c.imgRef.ref
 	if sha != "" {
 		ref = sha
 	}
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", c.ImgRef.ServerUrl(), c.ImgRef.Repository, ref, c.nsQueryParm())
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", c.imgRef.serverUrl(), c.imgRef.repository, ref, c.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	c.setAuthHdr(req)
-	resp, err := c.Client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return ManifestHolder{}, err
 	}
@@ -197,12 +197,12 @@ func (c RegClient) v2Manifests(sha string) (ManifestHolder, error) {
 
 // v2ManifestsHead is like v2Manifests but does a HEAD request. The result is returned in a
 // smaller struct with only media type, digest, and size (of manifest).
-func (c RegClient) v2ManifestsHead() (ManifestDescriptor, error) {
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", c.ImgRef.ServerUrl(), c.ImgRef.Repository, c.ImgRef.Ref, c.nsQueryParm())
+func (c regClient) v2ManifestsHead() (ManifestDescriptor, error) {
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", c.imgRef.serverUrl(), c.imgRef.repository, c.imgRef.ref, c.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodHead, url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	c.setAuthHdr(req)
-	resp, err := c.Client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return ManifestDescriptor{}, err
 	}
@@ -229,9 +229,9 @@ func (c RegClient) v2ManifestsHead() (ManifestDescriptor, error) {
 
 // setAuthHdr sets an auth header (e.g. "Bearer", "Basic") on the passed request
 // if the receiver is configured with such a header.
-func (c RegClient) setAuthHdr(req *http.Request) {
-	if c.AuthHdr != (AuthHeader{}) {
-		req.Header.Set(c.AuthHdr.key, c.AuthHdr.value)
+func (c regClient) setAuthHdr(req *http.Request) {
+	if c.authHdr != (authHeader{}) {
+		req.Header.Set(c.authHdr.key, c.authHdr.value)
 	}
 }
 
@@ -239,9 +239,9 @@ func (c RegClient) setAuthHdr(req *http.Request) {
 // and if it is, returns the namespace as a query param in the form: '?ns=X' where 'X'
 // is the receiver's namespace. If no namespace is configured, then the function
 // returns the empty string.
-func (c RegClient) nsQueryParm() string {
-	if c.Namespace != "" {
-		return "?ns=" + c.Namespace
+func (c regClient) nsQueryParm() string {
+	if c.namespace != "" {
+		return "?ns=" + c.namespace
 	} else {
 		return ""
 	}

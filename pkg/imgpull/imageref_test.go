@@ -27,13 +27,13 @@ func TestPRs(t *testing.T) {
 		{"baz@sha256:123", false, ""},
 	}
 	for _, url := range urls {
-		pr, err := NewImageRef(url.url, "https")
+		pr, err := newImageRef(url.url, "https")
 		if url.shouldParse && err != nil {
 			t.Fail()
 		} else if !url.shouldParse && err == nil {
 			t.Fail()
-		} else if url.shouldParse && pr.ImageUrlWithNs("") != url.parsedUrl {
-			imageUrl := pr.ImageUrlWithNs("")
+		} else if url.shouldParse && pr.imageUrlWithNs("") != url.parsedUrl {
+			imageUrl := pr.imageUrlWithNs("")
 			fmt.Println(imageUrl)
 			t.Fail()
 		}

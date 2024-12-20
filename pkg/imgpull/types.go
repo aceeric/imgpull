@@ -15,6 +15,8 @@ const (
 	V1ociLayerZstdMt       = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
+const SHA256PREFIX = "sha256:"
+
 // BearerAuth has the two parts of a bearer auth header that we need to
 // request a bearer token from an OCI distribution server.
 type BearerAuth struct {

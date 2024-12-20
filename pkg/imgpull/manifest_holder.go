@@ -198,12 +198,12 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 
 // NewDockerTarManifest creates a 'DockerTarManifest' from the passed image ref. It supports
 // pull-though by virtue of the 'namespace' arg.
-func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (DockerTarManifest, error) {
+func (mh *ManifestHolder) NewDockerTarManifest(ip imageRef, namespace string) (DockerTarManifest, error) {
 	dtm := DockerTarManifest{}
 	switch mh.Type {
 	case V2dockerManifest:
 		dtm.Config = mh.V2dockerManifest.Config.Digest
-		dtm.RepoTags = []string{ip.ImageUrlWithNs(namespace)}
+		dtm.RepoTags = []string{ip.imageUrlWithNs(namespace)}
 		for _, layer := range mh.V2dockerManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
 				return dtm, err
@@ -213,7 +213,7 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (D
 		}
 	case V1ociManifest:
 		dtm.Config = mh.V1ociManifest.Config.Digest
-		dtm.RepoTags = []string{ip.ImageUrlWithNs(namespace)}
+		dtm.RepoTags = []string{ip.imageUrlWithNs(namespace)}
 		for _, layer := range mh.V1ociManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
 				return dtm, err
@@ -225,7 +225,7 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip ImageRef, namespace string) (D
 		return dtm, fmt.Errorf("can't create docker tar manifest from %q kind of manifest", manifestTypeToString[mh.Type])
 	}
 	for idx, layer := range dtm.Layers {
-		dtm.Layers[idx] = strings.Replace(layer, "sha256:", "", -1)
+		dtm.Layers[idx] = strings.Replace(layer, SHA256PREFIX, "", -1)
 	}
 	return dtm, nil
 }
