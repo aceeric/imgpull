@@ -138,14 +138,15 @@ func (ip *ImageRef) ImageUrlWithNs(namespace string) string {
 	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, ip.Ref)
 }
 
-func (ip *ImageRef) ImageUrlWithDigest(digest string) string {
-	separator := "@"
-	reg := ip.Registry
-	if ip.Org == "" {
-		return fmt.Sprintf("%s/%s%s%s", reg, ip.Image, separator, digest)
-	}
-	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, digest)
-}
+// deprecated - to be deleted
+//func (ip *ImageRef) ImageUrlWithDigest(digest string) string {
+//	separator := "@"
+//	reg := ip.Registry
+//	if ip.Org == "" {
+//		return fmt.Sprintf("%s/%s%s%s", reg, ip.Image, separator, digest)
+//	}
+//	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.Org, ip.Image, separator, digest)
+//}
 
 // ServerUrl handles the case where an image is pulled from docker.io but the package
 // has to access the DockerHub API on host registry.docker.io so the receiver would have
