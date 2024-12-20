@@ -213,7 +213,7 @@ bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar -
    bin/imgpull localhost:8080/hello-world:latest --ns docker.io
    ```
 
-## Library
+## Quick Start - Library
 
 The project was designed for the code to be easily used as a library. For example:
 
