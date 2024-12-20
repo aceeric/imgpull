@@ -215,7 +215,12 @@ bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar -
 
 ## Quick Start - Library
 
-The project was designed for the code to be easily used as a library. For example:
+The project was designed for the code to be easily used as a library. The two primary abstractions are:
+
+1. `PullerOpts` - Configures how you'll interact with the upstream distribution server.
+2. `Puller` - Contains all the logic to actually pull the image.
+
+For example:
 
 ```
 package main
@@ -237,7 +242,16 @@ func main() {
 }
 ```
 
-Or, suppose you're pulling from a private registry that presents a cert signed by a CA that isn't included in the OS trust store:
+The `NewPullerOpts` function in the example above creates a`PullerOpts` struct as follows:
+
+1. Uses the image URL you provide.
+2. Defaults the scheme to `https`.
+3. Validates the upstream distribution server cert using the host OS trust store.
+4. Tries to pull an image matching the OS and architecture for your system.
+
+> This is the most common use case.
+
+Or, suppose you're pulling from a private registry that presents a cert signed by a CA that isn't included in the OS trust store. You can initialize a `PullerOpts` struct directly:
 ```
     ...
     opts := imgpull.PullerOpts{
@@ -250,9 +264,7 @@ Or, suppose you're pulling from a private registry that presents a cert signed b
     p, err := imgpull.NewPullerWith(opts)
 ```
 
-You can see that the `imgpull.PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. You can initialize a struct directly, or, use the `NewPullerOpts` function which minimally configures the options with the image url, HTTPS, and the OS and architecture matching your system. (The most common use case.)
-
-In fact the CLI params simply map to the fields in the `imgpull.PullerOpts` struct:
+You can see that the `PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. In fact the CLI params simply map to the fields in the `PullerOpts` struct:
 
 | Struct Member | Command line option | Setting the struct member | Using the CLI |
 |-|-|-|-|
