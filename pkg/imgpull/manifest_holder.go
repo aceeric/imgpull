@@ -30,6 +30,12 @@ const (
 	Image
 )
 
+// ManifestPullTypeFrom translates a literal string into a ManifestPullType
+var ManifestPullTypeFrom = map[string]ManifestPullType{
+	"image": Image,
+	"list":  ImageList,
+}
+
 // manifestTypeToString has string representations for all supported
 // 'ManifestType's.
 var manifestTypeToString = map[ManifestType]string{
@@ -44,6 +50,9 @@ var manifestTypeToString = map[ManifestType]string{
 // manifest list, or docker v2 manifest.
 type ManifestHolder struct {
 	Type                 ManifestType          `json:"type"`
+	Digest               string                `json:"digest"`
+	Url                  string                `json:"url"`
+	ImageUrl             string                `json:"imageUrl"`
 	V1ociIndex           v1oci.Index           `json:"v1.oci.index"`
 	V1ociManifest        v1oci.Manifest        `json:"v1.oci.manifest"`
 	V2dockerManifestList v2docker.ManifestList `json:"v2.docker.manifestList"`
@@ -53,13 +62,15 @@ type ManifestHolder struct {
 // NewManifestHolder initializes and returns a ManifestHolder struct for the passed
 // manifest bytes. The manifest bytes will be deserialized into one of the four manifest
 // variables based on the 'mediaType' arg.
-func NewManifestHolder(mediaType string, bytes []byte) (ManifestHolder, error) {
+func NewManifestHolder(mediaType string, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
 	mt := ToManifestType(mediaType)
 	if mt == Undefined {
 		return ManifestHolder{}, fmt.Errorf("unknown manifest type %q", mediaType)
 	}
 	mh := ManifestHolder{
-		Type: mt,
+		Type:     mt,
+		Digest:   digest,
+		ImageUrl: imageUrl,
 	}
 	err := mh.UnMarshalManifest(mt, bytes)
 	if err != nil {
@@ -198,12 +209,12 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 
 // NewDockerTarManifest creates a 'DockerTarManifest' from the passed image ref. It supports
 // pull-though by virtue of the 'namespace' arg.
-func (mh *ManifestHolder) NewDockerTarManifest(ip imageRef, namespace string) (DockerTarManifest, error) {
+func (mh *ManifestHolder) NewDockerTarManifest(iref imageRef, namespace string) (DockerTarManifest, error) {
 	dtm := DockerTarManifest{}
 	switch mh.Type {
 	case V2dockerManifest:
 		dtm.Config = mh.V2dockerManifest.Config.Digest
-		dtm.RepoTags = []string{ip.imageUrlWithNs(namespace)}
+		dtm.RepoTags = []string{iref.imageUrlWithNs(namespace)}
 		for _, layer := range mh.V2dockerManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
 				return dtm, err
@@ -213,7 +224,7 @@ func (mh *ManifestHolder) NewDockerTarManifest(ip imageRef, namespace string) (D
 		}
 	case V1ociManifest:
 		dtm.Config = mh.V1ociManifest.Config.Digest
-		dtm.RepoTags = []string{ip.imageUrlWithNs(namespace)}
+		dtm.RepoTags = []string{iref.imageUrlWithNs(namespace)}
 		for _, layer := range mh.V1ociManifest.Layers {
 			if ext, err := extensionForLayer(layer.MediaType); err != nil {
 				return dtm, err

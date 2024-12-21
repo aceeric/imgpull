@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"runtime"
 	"testing"
+
+	"github.com/opencontainers/go-digest"
 )
 
 func TestV2(t *testing.T) {
@@ -31,4 +33,10 @@ func TestV2(t *testing.T) {
 	if len(auth) != 1 {
 		t.Fail()
 	}
+}
+
+func TestDigest(t *testing.T) {
+	z := []byte{1, 2, 3, 4, 5}
+	computedDigest := digest.FromBytes(z).Hex()
+	fmt.Println(computedDigest)
 }

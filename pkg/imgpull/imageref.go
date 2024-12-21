@@ -15,7 +15,8 @@ const (
 	byDigest
 )
 
-// imageRef has the components of an image reference.
+// imageRef has the components of an image reference. Namespace is
+// intentionally not in here. This is purely the image reference.
 type imageRef struct {
 	// e.g.: foo.io/bar/baz:v1.2.3
 	raw string
@@ -48,33 +49,28 @@ func (ip *imageRef) ImageUrl() string {
 // MUST begin with a registry hostname (e.g. quay.io) - it is not (and cannot be)
 // inferred.
 func newImageRef(url, scheme string) (imageRef, error) {
-	org := ""
-	img := ""
-	ref := ""
-	repository := ""
-	pt := byTag
-	registry := ""
-	server := ""
-
-	parts := strings.Split(url, "/")
-	registry = parts[0]
-	server = parts[0]
-
-	if strings.ToLower(registry) == "docker.io" {
-		// can't make API calls to docker.io
-		server = "index.docker.io"
+	ir := imageRef{
+		raw:      strings.ToLower(url),
+		pullType: byTag,
+		scheme:   strings.ToLower(scheme),
 	}
-
+	parts := strings.Split(ir.raw, "/")
+	ir.registry = parts[0]
+	ir.server = ir.registry
+	if ir.registry == "docker.io" {
+		ir.server = "index.docker.io"
+	}
 	if len(parts) == 2 {
-		org = "library"
-		img = parts[1]
+		ir.image = parts[1]
+		if ir.registry == "docker.io" {
+			ir.org = "library"
+		}
 	} else if len(parts) == 3 {
-		org = parts[1]
-		img = parts[2]
+		ir.org = parts[1]
+		ir.image = parts[2]
 	} else {
-		return imageRef{}, fmt.Errorf("unable to parse image url %q", url)
+		return imageRef{}, fmt.Errorf("unable to parse image url %q", ir.raw)
 	}
-
 	ref_separators := []struct {
 		separator string
 		pt        imgPullType
@@ -82,33 +78,25 @@ func newImageRef(url, scheme string) (imageRef, error) {
 		{separator: "@", pt: byDigest},
 		{separator: ":", pt: byTag},
 	}
-
+	// split image and tag or digest
 	for _, rs := range ref_separators {
-		if strings.Contains(img, rs.separator) {
-			tmp := strings.Split(img, rs.separator)
-			img = tmp[0]
-			ref = tmp[1]
-			pt = rs.pt
-			repository = fmt.Sprintf("%s/%s", org, img)
+		if strings.Contains(ir.image, rs.separator) {
+			imgParts := strings.Split(ir.image, rs.separator)
+			ir.image = imgParts[0]
+			ir.ref = imgParts[1]
+			ir.pullType = rs.pt
 			break
 		}
 	}
-
-	if img == "" {
+	if ir.org == "" {
+		ir.repository = ir.image
+	} else {
+		ir.repository = fmt.Sprintf("%s/%s", ir.org, ir.image)
+	}
+	if ir.image == "" {
 		return imageRef{}, fmt.Errorf("unable to parse image url: %q", url)
 	}
-
-	return imageRef{
-		raw:        url,
-		pullType:   pt,
-		registry:   registry,
-		server:     server,
-		repository: repository,
-		org:        org,
-		image:      img,
-		ref:        ref,
-		scheme:     scheme,
-	}, nil
+	return ir, nil
 }
 
 // imageUrlWithNs returns the imageRef receiver URL-related content as an image reference suitable for

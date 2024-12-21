@@ -33,11 +33,8 @@ func pullTar(p imgpull.Puller, tarFile string) {
 	fmt.Printf("image %q saved to %q in %s\n", p.ImgRef.ImageUrl(), tarFile, time.Since(start))
 }
 
-func showManifest(p imgpull.Puller, manifest string) {
-	mt := imgpull.ImageList
-	if manifest == "image" {
-		mt = imgpull.Image
-	}
+func showManifest(p imgpull.Puller, manifestType string) {
+	mt := imgpull.ManifestPullTypeFrom[manifestType]
 	mh, err := p.PullManifest(mt)
 	if err != nil {
 		fmt.Println(err)
@@ -48,5 +45,8 @@ func showManifest(p imgpull.Puller, manifest string) {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println("MANIFEST:")
 	fmt.Printf("%s\n", m)
+	fmt.Printf("MANIFEST DIGEST: %s\n", mh.Digest)
+	fmt.Printf("IMAGE URL: %s\n", mh.ImageUrl)
 }
