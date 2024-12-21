@@ -7,17 +7,12 @@ import (
 )
 
 func main() {
-	cmdline, err := parseArgs()
-	if err != nil {
+	if cmdline, err := parseArgs(); err != nil {
 		fmt.Println(err)
 		showUsageAndExit(nil)
-	}
-	p, err := imgpull.NewPullerWith(pullerOptsFrom(cmdline))
-	if err != nil {
+	} else if p, err := imgpull.NewPullerWith(pullerOptsFrom(cmdline)); err != nil {
 		fmt.Println(err)
-		return
-	}
-	if cmdline.getVal(manifestOpt) == "" {
+	} else if cmdline.getVal(manifestOpt) == "" {
 		pullTar(p, cmdline.getVal(destOpt))
 	} else {
 		showManifest(p, cmdline.getVal(manifestOpt))
@@ -28,25 +23,18 @@ func pullTar(p imgpull.Puller, tarFile string) {
 	start := time.Now()
 	if err := p.PullTar(tarFile); err != nil {
 		fmt.Println(err)
-		return
+	} else {
+		fmt.Printf("image %q saved to %q in %s\n", p.ImgRef.ImageUrl(), tarFile, time.Since(start))
 	}
-	fmt.Printf("image %q saved to %q in %s\n", p.ImgRef.ImageUrl(), tarFile, time.Since(start))
 }
 
 func showManifest(p imgpull.Puller, manifestType string) {
 	mt := imgpull.ManifestPullTypeFrom[manifestType]
-	mh, err := p.PullManifest(mt)
-	if err != nil {
+	if mh, err := p.PullManifest(mt); err != nil {
 		fmt.Println(err)
-		return
-	}
-	m, err := mh.ToString()
-	if err != nil {
+	} else if manifest, err := mh.ToString(); err != nil {
 		fmt.Println(err)
-		return
+	} else {
+		fmt.Printf("MANIFEST:\n%s\nMANIFEST DIGEST: %s\nIMAGE URL: %s\n", manifest, mh.Digest, mh.ImageUrl)
 	}
-	fmt.Println("MANIFEST:")
-	fmt.Printf("%s\n", m)
-	fmt.Printf("MANIFEST DIGEST: %s\n", mh.Digest)
-	fmt.Printf("IMAGE URL: %s\n", mh.ImageUrl)
 }
