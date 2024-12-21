@@ -58,7 +58,7 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 	if ir, err := newImageRef(o.Url, o.Scheme); err != nil {
 		return Puller{}, err
 	} else {
-		c := http.DefaultClient
+		c := &http.Client{}
 		if cfg, err := o.configureTls(); err != nil {
 			return Puller{}, err
 		} else if cfg != nil {
