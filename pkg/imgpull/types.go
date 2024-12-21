@@ -1,5 +1,6 @@
 package imgpull
 
+// media types
 const (
 	V2dockerManifestListMt = "application/vnd.docker.distribution.manifest.list.v2+json"
 	V2dockerManifestMt     = "application/vnd.docker.distribution.manifest.v2+json"
@@ -17,23 +18,26 @@ const (
 
 const SHA256PREFIX = "sha256:"
 
-// BearerAuth has the two parts of a bearer auth header that we need to
-// request a bearer token from an OCI distribution server.
+// BearerAuth has the two parts of a bearer auth header that we need, in
+// order to request a bearer token from an OCI distribution server.
 type BearerAuth struct {
 	Realm   string
 	Service string
 }
 
+// BearerToken holds the bearer token value.
 type BearerToken struct {
 	Token string `json:"token"`
 }
 
+// BasicAuth holds the encoded username and password.
 type BasicAuth struct {
 	Encoded string `json:"encoded"`
 }
 
 // ManifestDescriptor has the information returned from a v2 manifests
-// HEAD request to an OCI distribution server.
+// HEAD request to an OCI distribution server. A HEAD request returns a subset
+// if manifest info.
 type ManifestDescriptor struct {
 	MediaType string `json:"mediaType,omitempty"`
 	Digest    string `json:"digest,omitempty"`

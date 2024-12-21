@@ -19,8 +19,8 @@ const (
 	V1ociManifest
 )
 
-// ManifestPullType is for the PullManifest function indicating whether to
-// pull an image manifest or an image list manifest.
+// ManifestPullType indicates whether to pull an image manifest or an
+// image list manifest.
 type ManifestPullType int
 
 const (
@@ -80,7 +80,8 @@ func NewManifestHolder(mediaType string, bytes []byte, digest string, imageUrl s
 }
 
 // ToManifestType returns the 'ManifestType' corrresponding to the passed
-// 'mediaType'.
+// 'mediaType'. If the media type does not match one of the supported types then
+// the function returns 'Undefined'.
 func ToManifestType(mediaType string) ManifestType {
 	switch mediaType {
 	case V2dockerManifestListMt:
@@ -148,9 +149,9 @@ func (mh *ManifestHolder) Layers() []Layer {
 	return layers
 }
 
-// ToString marshalls the manifest held by the ManifestHolder receiver. Only the
-// embedded manifest is returned - which will be a docker or oci manifest list, or
-// a docker or oci image manifest.
+// ToString renders the manifest held by the receiver into JSON. Only the
+// embedded manifest is returned - which will be a docker or oci manifest
+// list, or a docker or oci image manifest.
 func (mh *ManifestHolder) ToString() (string, error) {
 	var err error
 	var marshalled []byte
@@ -167,8 +168,8 @@ func (mh *ManifestHolder) ToString() (string, error) {
 	return string(marshalled), err
 }
 
-// GetImageConfig gets the 'Config' layer from the ManafestHolder receiver, or
-// an error if unable to do so.
+// GetImageConfig gets the 'Config' layer from the receiver, or an error if
+// unable to do so.
 func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
 	layer := Layer{}
 	switch mh.Type {

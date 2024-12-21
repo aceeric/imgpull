@@ -251,7 +251,7 @@ func (rc regClient) nsQueryParm() string {
 }
 
 // makeUrl makes an image ref like docker.io/hello-world:latest. If the receiver
-// has a namespace, then the namespace us used for the registry instead of the
+// has a namespace, then the namespace is used for the registry instead of the
 // registry in the receiver. If the reference (the tag or digest) in the receiver
 // then it is used, else if the passed sha is not the empty string, then it is
 // used, otherwise the ref in the receiver (which could be a tag or a digest)
