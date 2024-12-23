@@ -33,7 +33,10 @@ func (p *Puller) PullTar(dest string) error {
 }
 
 // PullManifest pulls an image manifest or an image list manifest based on the value
-// of the 'mpt' arg.
+// of the 'mpt' arg. The intended use case if to populate the Puller with a tag-type
+// reference. Then, requesting an image manifest will first get a manifest list if
+// available, and then select the proper image manifest based on puller OS/arch
+// configuration.
 func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
@@ -119,6 +122,7 @@ func (p *Puller) Pull(toPath string) (DockerTarManifest, error) {
 			return DockerTarManifest{}, err
 		}
 	}
+	// TODO MOVE ALL THIS TO TOTAR
 	dtm, err := mh.NewDockerTarManifest(p.ImgRef, p.Opts.Namespace)
 	if err != nil {
 		return DockerTarManifest{}, err
@@ -152,16 +156,17 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	return p.regCliFrom().v2Manifests("")
 }
 
-// GetManifestByDigest gets an image manifest by digest. Basically when building
-// the API url it replaces the tag in the receiver with the passed digest. This
-// function always returns an image manifest if one is available matching the
-// passed digest.
-func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
-	if err := p.connect(); err != nil {
-		return ManifestHolder{}, err
-	}
-	return p.regCliFrom().v2Manifests(digest)
-}
+// possible future use
+// // GetManifestByDigest gets an image manifest by digest. Basically when building
+// // the API url it replaces the tag in the receiver with the passed digest. This
+// // function always returns an image manifest if one is available matching the
+// // passed digest.
+// func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
+// 	if err := p.connect(); err != nil {
+// 		return ManifestHolder{}, err
+// 	}
+// 	return p.regCliFrom().v2Manifests(digest)
+// }
 
 // connect calls the 'v2' endpoint and looks for an auth header. If an auth
 // header is provided by the remote registry then this function will attempt

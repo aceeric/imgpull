@@ -115,6 +115,11 @@ func (rc regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 // var indicates that the blob is a config blob. Objects are stored with their digest as the file
 // name.
 func (rc regClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
+	fName := filepath.Join(toPath, layer.Digest)
+	fName, exists := checkBlobExists(layer, toPath, isConfig)
+	if exists {
+		return nil
+	}
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.imgRef.serverUrl(), rc.imgRef.repository, layer.Digest, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	rc.setAuthHdr(req)
@@ -124,10 +129,6 @@ func (rc regClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
 	}
 	if err != nil {
 		return err
-	}
-	fName := filepath.Join(toPath, layer.Digest)
-	if !isConfig {
-		fName = strings.Replace(filepath.Join(fName+".tar.gz"), SHA256PREFIX, "", -1)
 	}
 	blobFile, err := os.Create(fName)
 	if err != nil {
@@ -151,6 +152,21 @@ func (rc regClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
 		return fmt.Errorf("error getting blob - expected %d bytes, got %d bytes instead", layer.Size, bytesRead)
 	}
 	return nil
+}
+
+// checkBlobExists builds a blob path from the passed args and returns the file name,
+// along with true if the file already exists, else false.
+func checkBlobExists(layer Layer, toPath string, isConfig bool) (string, bool) {
+	var fName string
+	if isConfig {
+		fName = filepath.Join(toPath, layer.Digest)
+	} else {
+		fName = filepath.Join(digestFrom(fName) + ".tar.gz")
+	}
+	if _, err := os.Stat(fName); err == nil {
+		return fName, true
+	}
+	return fName, false
 }
 
 // v2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
