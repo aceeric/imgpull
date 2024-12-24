@@ -17,6 +17,7 @@ type authHdrTest struct {
 	service string
 }
 
+// test auth header parsing
 func TestAuthParse(t *testing.T) {
 	authHdrTests := []authHdrTest{
 		{

@@ -4,8 +4,10 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"testing"
@@ -72,13 +74,13 @@ func TestTarNew(t *testing.T) {
 	}
 	defer os.RemoveAll(d)
 	tarfile := filepath.Join(d, "test.tar")
-	configDigest := "12345678901234567890123456789012345678901234567890123456789012"
+	configDigest := makeDigest()
 	err = os.WriteFile(filepath.Join(d, configDigest), []byte(configDigest), 0644)
 	if err != nil {
 		t.Fail()
 	}
 	url := "flathead.io/frobozz/fizzbin:v1.2.3"
-	layerDigest := "00000000001111111111222222222233333333334444444444555555555599"
+	layerDigest := makeDigest()
 	err = os.WriteFile(filepath.Join(d, layerDigest), []byte(layerDigest), 0644)
 	if err != nil {
 		t.Fail()
@@ -90,7 +92,6 @@ func TestTarNew(t *testing.T) {
 			Size:      62,
 		},
 	}
-	// H E R E   T H I S   I S   F A I L I N G
 	dtm, err := imageTarball{
 		sourceDir:    d,
 		configDigest: configDigest,
@@ -170,4 +171,11 @@ func untarFile(tarfile string) error {
 		}
 	}
 	return nil
+}
+
+func makeDigest() string {
+	foo := fmt.Sprintf("%d", rand.Uint64())
+	hasher := sha256.New()
+	hasher.Write([]byte(foo))
+	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
