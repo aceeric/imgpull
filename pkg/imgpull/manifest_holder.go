@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"imgpull/pkg/imgpull/v1oci"
 	"imgpull/pkg/imgpull/v2docker"
-	"strings"
 )
 
 // ManifestType identifies the type of manifest the package can operate on.
@@ -208,36 +207,29 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 	return "", fmt.Errorf("unable to get manifest SHA for os %q, arch %q", os, arch)
 }
 
-// NewDockerTarManifest creates a 'DockerTarManifest' from the passed image ref. It supports
-// pull-though by virtue of the 'namespace' arg.
-func (mh *ManifestHolder) NewDockerTarManifest(iref imageRef, namespace string) (DockerTarManifest, error) {
-	dtm := DockerTarManifest{}
+// NewImageTarball creates an 'imageTarball' struct from the passed receiver and args.
+// It supports pull-though by virtue of the 'namespace' arg. The 'sourceDir' arg
+// specifies where the blob
+// files can be found.
+func (mh *ManifestHolder) NewImageTarball(iref imageRef, namespace string, sourceDir string) (imageTarball, error) {
+	dtm := imageTarball{
+		sourceDir: sourceDir,
+	}
 	switch mh.Type {
 	case V2dockerManifest:
-		dtm.Config = mh.V2dockerManifest.Config.Digest
-		dtm.RepoTags = []string{iref.imageUrlWithNs(namespace)}
+		dtm.configDigest = digestFrom(mh.V2dockerManifest.Config.Digest)
+		dtm.imageUrl = iref.imageUrlWithNs(namespace)
 		for _, layer := range mh.V2dockerManifest.Layers {
-			if ext, err := extensionForLayer(layer.MediaType); err != nil {
-				return dtm, err
-			} else {
-				dtm.Layers = append(dtm.Layers, layer.Digest+ext)
-			}
+			dtm.layers = append(dtm.layers, newLayer(layer.MediaType, layer.Digest, layer.Size))
 		}
 	case V1ociManifest:
-		dtm.Config = mh.V1ociManifest.Config.Digest
-		dtm.RepoTags = []string{iref.imageUrlWithNs(namespace)}
+		dtm.configDigest = digestFrom(mh.V1ociManifest.Config.Digest)
+		dtm.imageUrl = iref.imageUrlWithNs(namespace)
 		for _, layer := range mh.V1ociManifest.Layers {
-			if ext, err := extensionForLayer(layer.MediaType); err != nil {
-				return dtm, err
-			} else {
-				dtm.Layers = append(dtm.Layers, layer.Digest+ext)
-			}
+			dtm.layers = append(dtm.layers, newLayer(layer.MediaType, layer.Digest, layer.Size))
 		}
 	default:
 		return dtm, fmt.Errorf("can't create docker tar manifest from %q kind of manifest", manifestTypeToString[mh.Type])
-	}
-	for idx, layer := range dtm.Layers {
-		dtm.Layers[idx] = strings.Replace(layer, SHA256PREFIX, "", -1)
 	}
 	return dtm, nil
 }
@@ -250,18 +242,4 @@ func (mh *ManifestHolder) saveManifest(toPath string, name string) error {
 		return err
 	}
 	return saveFile([]byte(json), toPath, name)
-}
-
-// extensionForLayer returns '.tar', '.tar.gz', or '.tar.zstd' based on the
-// passed media type.
-func extensionForLayer(mediaType string) (string, error) {
-	switch mediaType {
-	case V1ociLayerMt, V2dockerLayerMt:
-		return ".tar", nil
-	case "", V2dockerLayerGzipMt, V1ociLayerGzipMt:
-		return ".tar.gz", nil
-	case V2dockerLayerZstdMt, V1ociLayerZstdMt:
-		return ".tar.zstd", nil
-	}
-	return "", fmt.Errorf("unsupported layer media type %q", mediaType)
 }

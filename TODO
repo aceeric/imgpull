@@ -1,12 +1,8 @@
 
+configurable locations for interim files
 unit tests
 coverage
 create locks on blob files
 check of blob file already exists
-configurable locations for interim files
 all errors print the image ref - minimall review all errors
 logging (off by default)
-
-
-tar file stuff
-1. pull should write clean digests

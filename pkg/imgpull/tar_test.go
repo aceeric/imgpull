@@ -87,10 +87,16 @@ func TestTarNew(t *testing.T) {
 		{
 			MediaType: V2dockerLayerGzipMt,
 			Digest:    layerDigest,
-			Size:      42,
+			Size:      62,
 		},
 	}
-	dtm, err := toTarNew(d, tarfile, configDigest, url, layers)
+	// H E R E   T H I S   I S   F A I L I N G
+	dtm, err := imageTarball{
+		sourceDir:    d,
+		configDigest: configDigest,
+		imageUrl:     url,
+		layers:       layers,
+	}.toTar(tarfile)
 	if err != nil {
 		t.Fail()
 	}

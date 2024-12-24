@@ -3,6 +3,7 @@ package imgpull
 import (
 	"archive/tar"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"os/user"
@@ -20,18 +21,27 @@ type DockerTarManifest struct {
 	Layers   []string `json:"layers"`
 }
 
-// toTarNew creates an image tarball at the path/name specified in 'tarfile'. The
-// 'sourceDir' is expected to contain:
-//
-//  1. A config blob named as a digest matching 'configDigest'.
-//  2. Layer files named as digests matching the 'Digest' value of each layer in the
-//     layer arg.
-func toTarNew(sourceDir, tarfile, configDigest, imageUrl string, layers []Layer) (DockerTarManifest, error) {
-	dtm := DockerTarManifest{
-		Config:   "sha256:" + configDigest,
-		RepoTags: []string{imageUrl},
-	}
+// imageTarball is used to build an image tarball.
+type imageTarball struct {
+	// sourceDir has the config digest and the layer blobs
+	sourceDir string
+	// imageUrl is the image url, like docker.io/hello-world:latest
+	imageUrl string
+	// configDigest is the digest of the image config layer
+	configDigest string
+	// layers is an array of blob layers
+	layers []Layer
+}
 
+// toTar creates an image tarball as configured in the receiver and writes it
+// to the path/file specified in the 'tarfile' arg. The function returns a
+// 'DockerTarManifest' struct that looks exactly like the 'manifest.json' file
+// in the tarball.
+func (tb imageTarball) toTar(tarfile string) (DockerTarManifest, error) {
+	dtm := DockerTarManifest{
+		Config:   "sha256:" + tb.configDigest,
+		RepoTags: []string{tb.imageUrl},
+	}
 	file, err := os.Create(tarfile)
 	if err != nil {
 		return DockerTarManifest{}, err
@@ -40,13 +50,13 @@ func toTarNew(sourceDir, tarfile, configDigest, imageUrl string, layers []Layer)
 	tw := tar.NewWriter(file)
 	defer tw.Close()
 
-	for _, layer := range layers {
+	for _, layer := range tb.layers {
 		if ext, err := extensionForLayer(layer.MediaType); err != nil {
 			return DockerTarManifest{}, err
 		} else {
-			dtm.Layers = append(dtm.Layers, layer.Digest+ext)
-			fname := filepath.Join(sourceDir, layer.Digest)
-			err = addFile(tw, fname, fname+ext)
+			fname := digestFrom(layer.Digest)
+			dtm.Layers = append(dtm.Layers, fname+ext)
+			err = addFile(tw, filepath.Join(tb.sourceDir, fname), fname+ext)
 			if err != nil {
 				return DockerTarManifest{}, err
 			}
@@ -60,49 +70,18 @@ func toTarNew(sourceDir, tarfile, configDigest, imageUrl string, layers []Layer)
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
-	err = addFile(tw, filepath.Join(sourceDir, configDigest), dtm.Config)
+	err = addFile(tw, filepath.Join(tb.sourceDir, tb.configDigest), dtm.Config)
 	if err != nil {
 		return DockerTarManifest{}, err
 	}
 	return dtm, nil
 }
 
-// toTar creates an image tarball at the path/name specified in 'tarfile' from
-// information in the receiver and files in the 'sourceDir' directory. The 'sourceDir'
-// is expected to contain:
-//
-//  1. The image manifest: 'manifest.json'
-//  2. A config layer whose name (like sha256:...) matches the config in the receiver
-//  3. Layer files named as listed in the Layers array in the receiver
-func (dtm *DockerTarManifest) toTar(sourceDir string, tarfile string) error {
-	//file, err := os.Create(tarfile)
-	//if err != nil {
-	//	return err
-	//}
-	//defer file.Close()
-	//tw := tar.NewWriter(file)
-	//defer tw.Close()
-	//addFile(tw, filepath.Join(sourceDir, "manifest.json"))
-	//addFile(tw, filepath.Join(sourceDir, dtm.Config))
-	//for _, layer := range dtm.Layers {
-	//	addFile(tw, filepath.Join(sourceDir, layer))
-	//}
-	return nil
-}
-
-// saveDockerTarManifest saves the passed docker tar manifest which is required to be contained in
-// an image tarball, i.e. a tarball that can be loaded with 'docker load'.
-func (dtm *DockerTarManifest) saveDockerTarManifest(toPath string, name string) error {
-	// it has to be written as an array of []tarexport.manifestItem
-	manifestArray := make([]DockerTarManifest, 1)
-	manifestArray[0] = *dtm
-	marshalled, err := json.MarshalIndent(manifestArray, "", "   ")
-	if err != nil {
-		return err
-	}
-	return saveFile(marshalled, toPath, name)
-}
-
+// toString renders the docker tar manifest in the receiver as a JSON-formatted
+// string exactly as it is required to be represented in an image tarball. Specifically.
+// the manifest has be contained within in an array of DockerTarManifest. The output
+// of this function can be written directly to the 'manifest.json' file in an
+// image tarball.
 func (dtm *DockerTarManifest) toString() ([]byte, error) {
 	manifestArray := make([]DockerTarManifest, 1)
 	manifestArray[0] = *dtm
@@ -137,7 +116,8 @@ func addFile(tw *tar.Writer, actualFile, fileNameInTar string) error {
 
 // addString adds the passed string to the tarfile as though it were
 // a file. When you untar the file the extracted string behaves like
-// any other file in the tar file.
+// any other file in the tar file. The intended use case is to write
+// a manifest represented in a string as though it was a file.
 func addString(tw *tar.Writer, content, name string) error {
 	u, err := user.Current()
 	if err != nil {
@@ -158,6 +138,7 @@ func addString(tw *tar.Writer, content, name string) error {
 	} else {
 		gname = g.Name
 	}
+	now := time.Now()
 	header := tar.Header{
 		Typeflag:   tar.TypeReg,
 		Name:       name,
@@ -168,9 +149,9 @@ func addString(tw *tar.Writer, content, name string) error {
 		Gid:        gid,
 		Uname:      u.Username,
 		Gname:      gname,
-		ModTime:    time.Now(),
-		AccessTime: time.Now(),
-		ChangeTime: time.Now(),
+		ModTime:    now,
+		AccessTime: now,
+		ChangeTime: now,
 		Devmajor:   0,
 		Devminor:   0,
 		Xattrs:     nil,
@@ -183,4 +164,18 @@ func addString(tw *tar.Writer, content, name string) error {
 	}
 	_, err = io.Copy(tw, strings.NewReader(content))
 	return err
+}
+
+// extensionForLayer returns '.tar', '.tar.gz', or '.tar.zstd' based on the
+// passed media type.
+func extensionForLayer(mediaType string) (string, error) {
+	switch mediaType {
+	case V1ociLayerMt, V2dockerLayerMt:
+		return ".tar", nil
+	case "", V2dockerLayerGzipMt, V1ociLayerGzipMt:
+		return ".tar.gz", nil
+	case V2dockerLayerZstdMt, V1ociLayerZstdMt:
+		return ".tar.zstd", nil
+	}
+	return "", fmt.Errorf("unsupported layer media type %q", mediaType)
 }

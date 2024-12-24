@@ -56,3 +56,12 @@ type Layer struct {
 	Digest    string `json:"digest"`
 	Size      int    `json:"size"`
 }
+
+// newLayer returns a new 'Layer' struct from the passed args
+func newLayer(mediaType string, digest string, size int64) Layer {
+	return Layer{
+		MediaType: mediaType,
+		Digest:    digest,
+		Size:      int(size),
+	}
+}

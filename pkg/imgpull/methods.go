@@ -114,9 +114,8 @@ func (rc regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 // 'layer' arg. The blob is stored in the location specified by 'toPath'. The 'isConfig'
 // var indicates that the blob is a config blob. Objects are stored with their digest as the file
 // name.
-func (rc regClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
-	fName := filepath.Join(toPath, layer.Digest)
-	fName, exists := checkBlobExists(layer, toPath, isConfig)
+func (rc regClient) v2Blobs(layer Layer, toPath string) error {
+	fName, exists := checkBlobExists(layer, toPath)
 	if exists {
 		return nil
 	}
@@ -156,13 +155,8 @@ func (rc regClient) v2Blobs(layer Layer, toPath string, isConfig bool) error {
 
 // checkBlobExists builds a blob path from the passed args and returns the file name,
 // along with true if the file already exists, else false.
-func checkBlobExists(layer Layer, toPath string, isConfig bool) (string, bool) {
-	var fName string
-	if isConfig {
-		fName = filepath.Join(toPath, layer.Digest)
-	} else {
-		fName = filepath.Join(digestFrom(fName) + ".tar.gz")
-	}
+func checkBlobExists(layer Layer, toPath string) (string, bool) {
+	fName := filepath.Join(toPath, digestFrom(layer.Digest))
 	if _, err := os.Stat(fName); err == nil {
 		return fName, true
 	}
