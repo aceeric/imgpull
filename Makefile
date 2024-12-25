@@ -8,7 +8,7 @@ all:
 
 .PHONY: test
 test:
-	go test $(ROOT)/pkg/imgpull --cover
+	go test $(ROOT)/pkg/imgpull -v --cover
 
 .PHONY: imgpull
 imgpull:

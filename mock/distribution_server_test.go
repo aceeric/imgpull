@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"regexp"
 	"testing"
+
+	"github.com/opencontainers/go-digest"
 )
 
 var srch = `.*([a-f0-9]{64}).*`
@@ -43,7 +45,7 @@ func TestServer(t *testing.T) {
 			}
 			hasher := sha256.New()
 			hasher.Write(body)
-			computedHash := fmt.Sprintf("%x", hasher.Sum(nil))
+			computedHash := digest.FromBytes(body).Hex()
 			if computedHash != expectedHash {
 				t.Fail()
 			}

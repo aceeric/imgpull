@@ -4,13 +4,14 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/opencontainers/go-digest"
 )
 
 // TestWriteFiles tests writing a physical file and a string "file"
@@ -46,17 +47,19 @@ func TestWriteFiles(t *testing.T) {
 	tw.Close()
 	tarfile.Close()
 
-	untarFile(filepath.Join(d, "foobar.tar"))
+	if untarFile(filepath.Join(d, "foobar.tar")) != nil {
+		t.Fail()
+	}
 
 	b1, err1 := os.ReadFile(filepath.Join(d, "foobar"))
-	b2, err2 := os.ReadFile(filepath.Join(d, "foobar_extracted"))
+	b2, err2 := os.ReadFile(filepath.Join(d, "foobar.extracted"))
 	if err1 != nil || err2 != nil {
 		t.Fail()
 	}
 	if !bytes.Equal(b1, b2) {
 		t.Fail()
 	}
-	b1, err1 = os.ReadFile(filepath.Join(d, "flathead_extracted"))
+	b1, err1 = os.ReadFile(filepath.Join(d, "flathead.extracted"))
 	if err1 != nil {
 		t.Fail()
 	}
@@ -105,21 +108,21 @@ func TestTarNew(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	b, err := os.ReadFile(filepath.Join(d, fmt.Sprintf("sha256:%s_extracted", configDigest)))
+	b, err := os.ReadFile(filepath.Join(d, fmt.Sprintf("sha256:%s.extracted", configDigest)))
 	if err != nil {
 		t.Fail()
 	}
 	if string(b) != configDigest {
 		t.Fail()
 	}
-	b, err = os.ReadFile(filepath.Join(d, layerDigest+".tar.gz_extracted"))
+	b, err = os.ReadFile(filepath.Join(d, layerDigest+".tar.gz.extracted"))
 	if err != nil {
 		t.Fail()
 	}
 	if string(b) != layerDigest {
 		t.Fail()
 	}
-	b, err = os.ReadFile(filepath.Join(d, "manifest.json_extracted"))
+	b, err = os.ReadFile(filepath.Join(d, "manifest.json.extracted"))
 	if err != nil {
 		t.Fail()
 	}
@@ -133,7 +136,7 @@ func TestTarNew(t *testing.T) {
 }
 
 // untarFile is a test helper that un-tars the passed file and appends
-// "_extracted" to the name of each extracted file. Files are co-located
+// ".extracted" to the name of each extracted file. Files are co-located
 // with the tarfile. Limitation: it doesn't process directories.
 func untarFile(tarfile string) error {
 	f, err := os.Open(tarfile)
@@ -159,7 +162,7 @@ func untarFile(tarfile string) error {
 			// ignore directories
 			continue
 		case tar.TypeReg:
-			p := filepath.Join(filepath.Dir(tarfile), header.Name+"_extracted")
+			p := filepath.Join(filepath.Dir(tarfile), header.Name+".extracted")
 			f, err := os.OpenFile(p, os.O_CREATE|os.O_RDWR, 0766)
 			if err != nil {
 				return err
@@ -173,9 +176,8 @@ func untarFile(tarfile string) error {
 	return nil
 }
 
+// makeDigest generates a random digest
 func makeDigest() string {
 	foo := fmt.Sprintf("%d", rand.Uint64())
-	hasher := sha256.New()
-	hasher.Write([]byte(foo))
-	return fmt.Sprintf("%x", hasher.Sum(nil))
+	return digest.FromBytes([]byte(foo)).Hex()
 }

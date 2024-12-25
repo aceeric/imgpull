@@ -1,14 +1,20 @@
 package imgpull
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"imgpull/mock"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/opencontainers/go-digest"
 )
 
 type authHdrTest struct {
@@ -31,7 +37,6 @@ func TestAuthParse(t *testing.T) {
 			service: "registry.docker.io",
 		},
 	}
-	fmt.Println(authHdrTests)
 	for _, authHdrTest := range authHdrTests {
 		ba := parseBearer(authHdrTest.hdr)
 		if ba.Realm != authHdrTest.realm || ba.Service != authHdrTest.service {
@@ -152,6 +157,65 @@ func TestPullManifest(t *testing.T) {
 					t.Fail()
 				}
 			}
+		}
+	}
+}
+
+func TestPullTar(t *testing.T) {
+	mp := mock.NewMockParams(mock.NONE, mock.NOTLS, mock.CertSetup{})
+	server, url := mock.Server(mp)
+	defer server.Close()
+	imgUrl := fmt.Sprintf("%s/hello-world:latest", url)
+	pullOpts := PullerOpts{
+		Url:      imgUrl,
+		OStype:   "linux",
+		ArchType: "amd64",
+		Scheme:   "http",
+	}
+	p, err := NewPullerWith(pullOpts)
+	if err != nil {
+		t.Fail()
+	}
+	d, _ := os.MkdirTemp("", "")
+	defer os.RemoveAll(d)
+	tarball := filepath.Join(d, "test.tar")
+	if p.PullTar(tarball) != nil {
+		t.Fail()
+	}
+	if untarFile(tarball) != nil {
+		t.Fail()
+	}
+	manifest, err := os.ReadFile(filepath.Join(d, "manifest.json.extracted"))
+	if err != nil {
+		t.Fail()
+	}
+	dtmActual := []DockerTarManifest{}
+	if json.Unmarshal(manifest, &dtmActual) != nil {
+		t.Fail()
+	}
+	dtmExp := DockerTarManifest{
+		Config:   "sha256:d2c94e258dcb3c5ac2798d32e1249e42ef01cba4841c2234249495f87264ac5a",
+		RepoTags: []string{imgUrl},
+		Layers:   []string{"c1ec31eb59444d78df06a974d155e597c894ab4cda84f08294145e845394988e.tar.gz"},
+	}
+	if !reflect.DeepEqual(dtmExp, dtmActual[0]) {
+		t.Fail()
+	}
+	layers := []string{
+		"c1ec31eb59444d78df06a974d155e597c894ab4cda84f08294145e845394988e.tar.gz.extracted",
+		"sha256:d2c94e258dcb3c5ac2798d32e1249e42ef01cba4841c2234249495f87264ac5a.extracted",
+	}
+	for _, layer := range layers {
+		bytes, err := os.ReadFile(filepath.Join(d, layer))
+		if err != nil {
+			t.Fail()
+		}
+		hasher := sha256.New()
+		hasher.Write(bytes)
+		digestActual := digest.FromBytes(bytes).Hex()
+		digestExp := digestFrom(layer)
+		if digestExp != digestActual {
+			t.Fail()
 		}
 	}
 }
