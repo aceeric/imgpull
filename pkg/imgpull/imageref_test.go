@@ -37,8 +37,8 @@ func TestPRs(t *testing.T) {
 			t.Fail()
 		} else if !url.shouldParse && err == nil {
 			t.Fail()
-		} else if url.shouldParse && pr.imageUrlWithNs("") != url.parsedUrl {
-			imageUrl := pr.imageUrlWithNs("")
+		} else if url.shouldParse && pr.ImageUrl() != url.parsedUrl {
+			imageUrl := pr.ImageUrl()
 			fmt.Println(imageUrl)
 			t.Fail()
 		}

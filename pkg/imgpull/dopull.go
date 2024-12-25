@@ -61,10 +61,12 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 		}
 		return im, nil
 	}
+	// if we get here, then the registry did not have a manifest list and so
+	// provided an image manifest
 	if mpt == Image {
 		return mh, nil
 	} else {
-		return ManifestHolder{}, fmt.Errorf("server did not provide a manifest list for %q", p.ImgRef.ImageUrl())
+		return ManifestHolder{}, fmt.Errorf("server did not provide a manifest for %q", p.ImgRef.ImageUrl())
 	}
 }
 

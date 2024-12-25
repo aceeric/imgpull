@@ -110,10 +110,10 @@ func (rc regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 	return token, nil
 }
 
-// v2Blobs calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the passed
-// 'layer' arg. The blob is stored in the location specified by 'toPath'. The 'isConfig'
-// var indicates that the blob is a config blob. Objects are stored with their digest as the file
-// name.
+// v2Blobs first looks in 'toPath' for a blob with a filename matching the digest in the passed layer. If found, then nil
+// is returned. Otherwise the function calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
+// passed 'layer' arg. The blob is stored in the location specified by 'toPath'. The 'isConfig' var indicates that the
+// blob is a config blob. Objects are stored with their digest as the file name.
 func (rc regClient) v2Blobs(layer Layer, toPath string) error {
 	fName, exists := checkBlobExists(layer, toPath)
 	if exists {

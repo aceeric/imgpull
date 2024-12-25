@@ -1,8 +1,5 @@
 
-configurable locations for interim files
-unit tests
-coverage
-create locks on blob files
-check of blob file already exists
-all errors print the image ref - minimall review all errors
-logging (off by default)
+- configurable locations for interim files
+- create locks on blob files
+- review all errors
+- logging (off by default)

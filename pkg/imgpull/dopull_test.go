@@ -161,6 +161,29 @@ func TestPullManifest(t *testing.T) {
 	}
 }
 
+func TestPullTarNotFound(t *testing.T) {
+	mp := mock.NewMockParams(mock.NONE, mock.NOTLS, mock.CertSetup{})
+	server, url := mock.Server(mp)
+	defer server.Close()
+	imgUrl := fmt.Sprintf("%s/nosuch/image:v1.2.3", url)
+	pullOpts := PullerOpts{
+		Url:      imgUrl,
+		OStype:   "linux",
+		ArchType: "amd64",
+		Scheme:   "http",
+	}
+	p, err := NewPullerWith(pullOpts)
+	if err != nil {
+		t.Fail()
+	}
+	d, _ := os.MkdirTemp("", "")
+	defer os.RemoveAll(d)
+	tarball := filepath.Join(d, "test.tar")
+	if p.PullTar(tarball) == nil {
+		t.Fail()
+	}
+}
+
 func TestPullTar(t *testing.T) {
 	mp := mock.NewMockParams(mock.NONE, mock.NOTLS, mock.CertSetup{})
 	server, url := mock.Server(mp)
@@ -217,5 +240,36 @@ func TestPullTar(t *testing.T) {
 		if digestExp != digestActual {
 			t.Fail()
 		}
+	}
+}
+
+func TestHeadManifest(t *testing.T) {
+	mp := mock.NewMockParams(mock.NONE, mock.NOTLS, mock.CertSetup{})
+	server, url := mock.Server(mp)
+	defer server.Close()
+	imgUrl := fmt.Sprintf("%s/hello-world:latest", url)
+	pullOpts := PullerOpts{
+		Url:      imgUrl,
+		OStype:   "linux",
+		ArchType: "amd64",
+		Scheme:   "http",
+	}
+	p, err := NewPullerWith(pullOpts)
+	if err != nil {
+		t.Fail()
+	}
+	md, err := p.HeadManifest()
+	if err != nil {
+		t.Fail()
+	}
+	if md.MediaType != V1ociIndexMt {
+		t.Fail()
+	}
+	mh, err := p.GetManifest()
+	if err != nil {
+		t.Fail()
+	}
+	if mh.Type != V1ociIndex {
+		t.Fail()
 	}
 }

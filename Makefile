@@ -10,6 +10,11 @@ all:
 test:
 	go test $(ROOT)/pkg/imgpull -v --cover
 
+.PHONY: coverprof
+coverprof:
+	go test $(ROOT)/pkg/imgpull -coverprofile=$(ROOT)/prof.out
+	go tool cover -html=$(ROOT)/prof.out
+
 .PHONY: imgpull
 imgpull:
 	CGO_ENABLED=0 go build -ldflags "-X 'main.buildVer=$(CMD_VERSION)' -X 'main.buildDtm=$(DATETIME)'"\
@@ -24,6 +29,9 @@ define HELPTEXT
 This make file provides the following targets:
 
 test          Runs the unit tests
+
+coverprof     Runs the test coverage profile report and displays it in a local
+              browser window.
 
 imgpull       Builds the CLI. After building then: 'bin/imgpull --help'.
 
