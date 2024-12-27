@@ -70,21 +70,15 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	}
 }
 
-// Pull pulls the image specified in the receiver to the passed 'toPath'. An
-// 'imageTarball' struct is returned that describes the pulled image. The directory
-// specfied by'toPath' will be populated with:
+// Pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
+// An 'imageTarball' struct is returned that describes the pulled image. The directory
+// specfied by 'blobDir' will be populated with:
 //
-//  1. The image list manifest for the URL,
-//  2. The image manifest.
-//  3. The docker TAR manifest (the same one returned from the function), and
-//  4. The blobs, including the configuration blob. All blobs are saved into this
-//     directory with filenames consisting of 64-character digests.
+//  1. The configuration blob
+//  2. The layer blobs.
 //
-// In other words everything needed to create a tarball that looks like a
-// 'docker save' tarball. This is intended as a lower-level function in which
-// the caller doesn't want a tarball - they want all the manifests and blobs
-// with direct access.
-func (p *Puller) Pull(toPath string) (imageTarball, error) {
+// All blobs are saved into this directory with filenames consisting of 64-character digests.
+func (p *Puller) Pull(blobDir string) (imageTarball, error) {
 	if err := p.connect(); err != nil {
 		return imageTarball{}, err
 	}
@@ -94,10 +88,6 @@ func (p *Puller) Pull(toPath string) (imageTarball, error) {
 		return imageTarball{}, err
 	}
 	if mh.IsManifestList() {
-		err := mh.saveManifest(toPath, "image-index.json")
-		if err != nil {
-			return imageTarball{}, err
-		}
 		digest, err := mh.GetImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
 		if err != nil {
 			return imageTarball{}, err
@@ -108,25 +98,21 @@ func (p *Puller) Pull(toPath string) (imageTarball, error) {
 		}
 		mh = im
 	}
-	err = mh.saveManifest(toPath, "image.json")
-	if err != nil {
-		return imageTarball{}, err
-	}
 	configDigest, err := mh.GetImageConfig()
 	if err != nil {
 		return imageTarball{}, err
 	}
 	// get the config blob to the file system
-	if err := rc.v2Blobs(configDigest, toPath); err != nil {
+	if err := rc.v2Blobs(configDigest, blobDir); err != nil {
 		return imageTarball{}, err
 	}
 	// get the layer blobs to the file system
 	for _, layer := range mh.Layers() {
-		if err := rc.v2Blobs(layer, toPath); err != nil {
+		if err := rc.v2Blobs(layer, blobDir); err != nil {
 			return imageTarball{}, err
 		}
 	}
-	return mh.NewImageTarball(p.ImgRef, p.Opts.Namespace, toPath)
+	return mh.NewImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
 }
 
 // HeadManifest does a HEAD request for the image URL in the receiver. The

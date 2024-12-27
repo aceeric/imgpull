@@ -1,5 +1,6 @@
 
-- configurable locations for interim files
-- create locks on blob files
+- don't write manifests
+- simple blob writer
+- concurrent blob writer
 - review all errors
 - logging (off by default)
