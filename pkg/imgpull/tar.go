@@ -23,7 +23,7 @@ type DockerTarManifest struct {
 
 // imageTarball is used to build an image tarball.
 type imageTarball struct {
-	// sourceDir has the config digest and the layer blobs
+	// sourceDir has the config digest blob and the layer blobs
 	sourceDir string
 	// imageUrl is the image url, like docker.io/hello-world:latest
 	imageUrl string

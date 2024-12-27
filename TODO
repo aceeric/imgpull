@@ -1,5 +1,4 @@
 
-- don't write manifests
 - simple blob writer
 - concurrent blob writer
 - review all errors
