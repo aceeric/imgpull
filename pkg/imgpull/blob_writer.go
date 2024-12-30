@@ -7,13 +7,18 @@ import (
 	"time"
 )
 
+// enqueueResult represents the result of enqueing a blob pull.
 type enqueueResult bool
 
+// syncObj has a channel created by an enqueueing action, and the
+// result of the enqueueing.
 type syncObj struct {
 	ch          chan bool
 	enqueResult enqueueResult
 }
 
+// WriteSyncer has three functions that support the semantics of concurrent
+// blob pulling.
 type WriteSyncer struct {
 	// enqueueGet enqueues a pull for a blob digest. If there are no other requesters,
 	// then the function returns 'notEnqueued' - meaning the caller is the first requester
@@ -26,18 +31,21 @@ type WriteSyncer struct {
 	// doneGet signals all waiters that are associated with the digest in arg 1.
 	doneGet func(string, syncObj)
 	// wait waits to be signaled on the channel in the passed syncObj, or times out
-	// based on the value of blobTimeoutSec.
+	// based on the value of the package blobTimeoutSec variable.
 	wait func(syncObj) error
 }
 
 // pullMap supports multiple threads attempting to pull the same blob concurrently.
+// The pullMap struct member is a blob digest, and 1+ channels that are waiting
+// for the blob pull to complete.
 type pullMap struct {
 	mu      sync.Mutex
 	pullMap map[string][]chan bool
 }
 
 var (
-	// simple write syncer doesn't support concurrency but it enables the
+	concurrentBlobs = false
+	// Simple write syncer doesn't support concurrency but it enables the
 	// blob puller to have the same structure whether blobs are pulled
 	// concurrently or only in one thread of execution.
 	writeSyncer = WriteSyncer{

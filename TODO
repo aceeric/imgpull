@@ -5,3 +5,4 @@
 - logging (off by default)
 - for ociregistry, need method similar to dopull.Pull that only pulls blobs
   - takes manifest holder, blobDir, blob writer??
+- change Layers() to return the config digest too

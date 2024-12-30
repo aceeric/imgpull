@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -98,17 +99,9 @@ func (p *Puller) Pull(blobDir string) (imageTarball, error) {
 		}
 		mh = im
 	}
-	configDigest, err := mh.GetImageConfig()
-	if err != nil {
-		return imageTarball{}, err
-	}
-	// get the config blob to the file system
-	if err := rc.v2Blobs(configDigest, blobDir); err != nil {
-		return imageTarball{}, err
-	}
 	// get the layer blobs to the file system
 	for _, layer := range mh.Layers() {
-		if err := rc.v2Blobs(layer, blobDir); err != nil {
+		if err := rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))); err != nil {
 			return imageTarball{}, err
 		}
 	}
@@ -120,17 +113,9 @@ func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) (imageTarball, err
 		return imageTarball{}, err
 	}
 	rc := p.regCliFrom()
-	configDigest, err := mh.GetImageConfig()
-	if err != nil {
-		return imageTarball{}, err
-	}
-	// get the config blob to the file system
-	if err := rc.v2Blobs(configDigest, blobDir); err != nil {
-		return imageTarball{}, err
-	}
 	// get the layer blobs to the file system
 	for _, layer := range mh.Layers() {
-		if err := rc.v2Blobs(layer, blobDir); err != nil {
+		if err := rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))); err != nil {
 			return imageTarball{}, err
 		}
 	}

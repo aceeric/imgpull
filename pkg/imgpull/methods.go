@@ -110,16 +110,24 @@ func (rc regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 	return token, nil
 }
 
-func (rc regClient) v2Blobs(layer Layer, toPath string) error {
-	if _, exists := checkBlobExists(layer, toPath); exists {
+// v2Blobs wraps a call to 'v2BlobsInternal' in concurrency handling if needed.
+// This supports using the package as a library by preventing multiple goroutines
+// from pulling the same blob. If that happens, the first go routine will pull,
+// and others will wait for the first goroutine to finish.
+func (rc regClient) v2Blobs(layer Layer, toFile string) error {
+	if f, err := os.Stat(toFile); err == nil && f.Size() == int64(layer.Size) {
+		// already exists
 		return nil
+	}
+	if !concurrentBlobs {
+		return rc.v2BlobsInternal(layer, toFile)
 	}
 	so := writeSyncer.enqueueGet(layer.Digest)
 	var err error
 	go func() {
 		if so.enqueResult == notEnqueued {
 			defer writeSyncer.doneGet(layer.Digest, so)
-			err = rc.v2BlobsInternal(layer, toPath)
+			err = rc.v2BlobsInternal(layer, toFile)
 		}
 	}()
 	waitResult := writeSyncer.wait(so)
@@ -130,12 +138,9 @@ func (rc regClient) v2Blobs(layer Layer, toPath string) error {
 	return waitResult
 }
 
-// v2Blobs first looks in 'toPath' for a blob with a filename matching the digest in the passed layer. If found, then nil
-// is returned. Otherwise the function calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
-// passed 'layer' arg. The blob is stored in the location specified by 'toPath'. The 'isConfig' var indicates that the
-// blob is a config blob. Objects are stored with their digest as the file name.
-func (rc regClient) v2BlobsInternal(layer Layer, toPath string) error {
-	fName, _ := checkBlobExists(layer, toPath)
+// v2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
+// passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
+func (rc regClient) v2BlobsInternal(layer Layer, toFile string) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.imgRef.serverUrl(), rc.imgRef.repository, layer.Digest, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	rc.setAuthHdr(req)
@@ -146,7 +151,7 @@ func (rc regClient) v2BlobsInternal(layer Layer, toPath string) error {
 	if err != nil {
 		return err
 	}
-	blobFile, err := os.Create(fName)
+	blobFile, err := os.Create(toFile)
 	if err != nil {
 		return err
 	}

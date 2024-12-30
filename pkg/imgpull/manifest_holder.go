@@ -121,8 +121,9 @@ func (mh *ManifestHolder) IsManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
 
-// Layers returns an array of 'Layer' for the manifest container by the ManifestHolder
-// receiver.
+// Layers returns an array of 'Layer' for the manifest contained by the ManifestHolder
+// receiver. The Config is also returned since that is obtained using the v2/blobs
+// endpoint just like the image layers.
 func (mh *ManifestHolder) Layers() []Layer {
 	layers := make([]Layer, 0)
 	switch mh.Type {
@@ -135,6 +136,12 @@ func (mh *ManifestHolder) Layers() []Layer {
 			}
 			layers = append(layers, nl)
 		}
+		nl := Layer{
+			Digest:    mh.V2dockerManifest.Config.Digest,
+			MediaType: mh.V2dockerManifest.Config.MediaType,
+			Size:      int(mh.V2dockerManifest.Config.Size),
+		}
+		layers = append(layers, nl)
 	case V1ociManifest:
 		for _, l := range mh.V1ociManifest.Layers {
 			nl := Layer{
@@ -144,6 +151,12 @@ func (mh *ManifestHolder) Layers() []Layer {
 			}
 			layers = append(layers, nl)
 		}
+		nl := Layer{
+			Digest:    mh.V1ociManifest.Config.Digest,
+			MediaType: mh.V1ociManifest.Config.MediaType,
+			Size:      int(mh.V1ociManifest.Config.Size),
+		}
+		layers = append(layers, nl)
 	}
 	return layers
 }
@@ -167,24 +180,25 @@ func (mh *ManifestHolder) ToString() (string, error) {
 	return string(marshalled), err
 }
 
-// GetImageConfig gets the 'Config' layer from the receiver, or an error if
-// unable to do so.
-func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
-	layer := Layer{}
-	switch mh.Type {
-	case V2dockerManifest:
-		layer.Digest = mh.V2dockerManifest.Config.Digest
-		layer.MediaType = mh.V2dockerManifest.Config.MediaType
-		layer.Size = int(mh.V2dockerManifest.Config.Size)
-	case V1ociManifest:
-		layer.Digest = mh.V1ociManifest.Config.Digest
-		layer.MediaType = mh.V1ociManifest.Config.MediaType
-		layer.Size = int(mh.V1ociManifest.Config.Size)
-	default:
-		return layer, fmt.Errorf("can't get image config from %q kind of manifest", manifestTypeToString[mh.Type])
-	}
-	return layer, nil
-}
+//// TODO DELETE
+//// GetImageConfig gets the 'Config' layer from the receiver, or an error if
+//// unable to do so.
+//func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
+//	layer := Layer{}
+//	switch mh.Type {
+//	case V2dockerManifest:
+//		layer.Digest = mh.V2dockerManifest.Config.Digest
+//		layer.MediaType = mh.V2dockerManifest.Config.MediaType
+//		layer.Size = int(mh.V2dockerManifest.Config.Size)
+//	case V1ociManifest:
+//		layer.Digest = mh.V1ociManifest.Config.Digest
+//		layer.MediaType = mh.V1ociManifest.Config.MediaType
+//		layer.Size = int(mh.V1ociManifest.Config.Size)
+//	default:
+//		return layer, fmt.Errorf("can't get image config from %q kind of manifest", manifestTypeToString[mh.Type])
+//	}
+//	return layer, nil
+//}
 
 // GetImageDigestFor looks in the manifest list in the receiver for a manifest in the list
 // matching the passed OS and architecture and if found returns it. Otherwise an error is
