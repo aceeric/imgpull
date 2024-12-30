@@ -3,3 +3,5 @@
 - concurrent blob writer
 - review all errors
 - logging (off by default)
+- for ociregistry, need method similar to dopull.Pull that only pulls blobs
+  - takes manifest holder, blobDir, blob writer??

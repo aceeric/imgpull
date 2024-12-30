@@ -115,6 +115,28 @@ func (p *Puller) Pull(blobDir string) (imageTarball, error) {
 	return mh.NewImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
 }
 
+func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) (imageTarball, error) {
+	if err := p.connect(); err != nil {
+		return imageTarball{}, err
+	}
+	rc := p.regCliFrom()
+	configDigest, err := mh.GetImageConfig()
+	if err != nil {
+		return imageTarball{}, err
+	}
+	// get the config blob to the file system
+	if err := rc.v2Blobs(configDigest, blobDir); err != nil {
+		return imageTarball{}, err
+	}
+	// get the layer blobs to the file system
+	for _, layer := range mh.Layers() {
+		if err := rc.v2Blobs(layer, blobDir); err != nil {
+			return imageTarball{}, err
+		}
+	}
+	return mh.NewImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
+}
+
 // HeadManifest does a HEAD request for the image URL in the receiver. The
 // 'ManifestDescriptor' returned to the caller contains the image digest,
 // media type and manifest size, as provided by the upstream distribution

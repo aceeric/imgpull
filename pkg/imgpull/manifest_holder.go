@@ -209,8 +209,9 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 
 // NewImageTarball creates an 'imageTarball' struct from the passed receiver and args.
 // It supports pull-though by virtue of the 'namespace' arg. The 'sourceDir' arg
-// specifies where the blob
-// files can be found.
+// specifies where the blob files can be found. The function doesn't create the tarball
+// but the struct that is returned has everything needed for the caller to create the
+// tarball.
 func (mh *ManifestHolder) NewImageTarball(iref imageRef, namespace string, sourceDir string) (imageTarball, error) {
 	dtm := imageTarball{
 		sourceDir: sourceDir,

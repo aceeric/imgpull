@@ -110,15 +110,32 @@ func (rc regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 	return token, nil
 }
 
+func (rc regClient) v2Blobs(layer Layer, toPath string) error {
+	if _, exists := checkBlobExists(layer, toPath); exists {
+		return nil
+	}
+	so := writeSyncer.enqueueGet(layer.Digest)
+	var err error
+	go func() {
+		if so.enqueResult == notEnqueued {
+			defer writeSyncer.doneGet(layer.Digest, so)
+			err = rc.v2BlobsInternal(layer, toPath)
+		}
+	}()
+	waitResult := writeSyncer.wait(so)
+	if err != nil {
+		// blob pull err
+		return err
+	}
+	return waitResult
+}
+
 // v2Blobs first looks in 'toPath' for a blob with a filename matching the digest in the passed layer. If found, then nil
 // is returned. Otherwise the function calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
 // passed 'layer' arg. The blob is stored in the location specified by 'toPath'. The 'isConfig' var indicates that the
 // blob is a config blob. Objects are stored with their digest as the file name.
-func (rc regClient) v2Blobs(layer Layer, toPath string) error {
-	fName, exists := checkBlobExists(layer, toPath)
-	if exists {
-		return nil
-	}
+func (rc regClient) v2BlobsInternal(layer Layer, toPath string) error {
+	fName, _ := checkBlobExists(layer, toPath)
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.imgRef.serverUrl(), rc.imgRef.repository, layer.Digest, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	rc.setAuthHdr(req)
@@ -157,7 +174,7 @@ func (rc regClient) v2Blobs(layer Layer, toPath string) error {
 // along with true if the file already exists, else false.
 func checkBlobExists(layer Layer, toPath string) (string, bool) {
 	fName := filepath.Join(toPath, digestFrom(layer.Digest))
-	if _, err := os.Stat(fName); err == nil {
+	if f, err := os.Stat(fName); err == nil && f.Size() == int64(layer.Size) {
 		return fName, true
 	}
 	return fName, false
@@ -262,10 +279,9 @@ func (rc regClient) nsQueryParm() string {
 
 // makeUrl makes an image ref like docker.io/hello-world:latest. If the receiver
 // has a namespace, then the namespace is used for the registry instead of the
-// registry in the receiver. If the reference (the tag or digest) in the receiver
-// then it is used, else if the passed sha is not the empty string, then it is
-// used, otherwise the ref in the receiver (which could be a tag or a digest)
-// is used.
+// registry in the receiver. If the passed sha is not the empty string, then it is
+// used as a digest ref, otherwise the ref in the receiver (which could be a tag
+// or a digest is used.
 func (rc regClient) makeUrl(sha string) string {
 	regToUse := rc.imgRef.registry
 	if rc.namespace != "" {
