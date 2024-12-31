@@ -63,7 +63,7 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 		return im, nil
 	}
 	// if we get here, then the registry did not have a manifest list and so
-	// provided an image manifest
+	// it provided an image manifest
 	if mpt == Image {
 		return mh, nil
 	} else {
@@ -99,27 +99,26 @@ func (p *Puller) Pull(blobDir string) (imageTarball, error) {
 		}
 		mh = im
 	}
-	// get the layer blobs to the file system
 	for _, layer := range mh.Layers() {
-		if err := rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))); err != nil {
+		if rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))) != nil {
 			return imageTarball{}, err
 		}
 	}
 	return mh.NewImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
 }
 
-func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) (imageTarball, error) {
+// PullBlobs pulls the blobs for an image, writing them into 'blobDir'.
+func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	if err := p.connect(); err != nil {
-		return imageTarball{}, err
+		return err
 	}
 	rc := p.regCliFrom()
-	// get the layer blobs to the file system
 	for _, layer := range mh.Layers() {
 		if err := rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))); err != nil {
-			return imageTarball{}, err
+			return err
 		}
 	}
-	return mh.NewImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
+	return nil
 }
 
 // HeadManifest does a HEAD request for the image URL in the receiver. The

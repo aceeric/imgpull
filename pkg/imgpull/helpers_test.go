@@ -1,13 +1,18 @@
 package imgpull
 
-import "testing"
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 type digestTest struct {
 	tst      string
 	expected string
 }
 
-func TestDigestFr(t *testing.T) {
+func TestDigestFrom(t *testing.T) {
 	for _, dt := range []digestTest{
 		{"1234567890123456789012345678901234567890123456789012345678901234", "1234567890123456789012345678901234567890123456789012345678901234"},
 		{"sha256:1234567890123456789012345678901234567890123456789012345678901234", "1234567890123456789012345678901234567890123456789012345678901234"},
@@ -20,5 +25,21 @@ func TestDigestFr(t *testing.T) {
 		if actual != dt.expected {
 			t.Fail()
 		}
+	}
+}
+
+func TestSaveFile(t *testing.T) {
+	expContent := "test"
+	d, _ := os.MkdirTemp("", "")
+	defer os.RemoveAll(d)
+	if saveFile([]byte(expContent), d, "test") != nil {
+		t.Fail()
+	}
+	actContent, err := os.ReadFile(filepath.Join(d, "test"))
+	if err != nil {
+		t.Fail()
+	}
+	if !bytes.Equal([]byte(expContent), actContent) {
+		t.Fail()
 	}
 }

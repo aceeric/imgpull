@@ -273,3 +273,38 @@ func TestHeadManifest(t *testing.T) {
 		t.Fail()
 	}
 }
+
+// Tests the 'PullBlobs' function
+func TestPullBlobs(t *testing.T) {
+	mp := mock.NewMockParams(mock.NONE, mock.NOTLS, mock.CertSetup{})
+	server, url := mock.Server(mp)
+	defer server.Close()
+	imgUrl := fmt.Sprintf("%s/hello-world:latest", url)
+	pullOpts := PullerOpts{
+		Url:      imgUrl,
+		OStype:   "linux",
+		ArchType: "amd64",
+		Scheme:   "http",
+	}
+	p, err := NewPullerWith(pullOpts)
+	if err != nil {
+		t.Fail()
+	}
+	mh, err := p.PullManifest(Image)
+	if err != nil {
+		t.Fail()
+	}
+	d, _ := os.MkdirTemp("", "")
+	defer os.RemoveAll(d)
+	p.PullBlobs(mh, d)
+
+	expBlobs := []string{
+		"c1ec31eb59444d78df06a974d155e597c894ab4cda84f08294145e845394988e",
+		"d2c94e258dcb3c5ac2798d32e1249e42ef01cba4841c2234249495f87264ac5a",
+	}
+	for _, digest := range expBlobs {
+		if _, err := os.Stat(filepath.Join(d, digest)); err != nil {
+			t.Fail()
+		}
+	}
+}

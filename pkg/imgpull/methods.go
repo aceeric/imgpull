@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/opencontainers/go-digest"
@@ -26,7 +25,7 @@ type authHeader struct {
 }
 
 // regClient has everything needed to talk to an OCI Distribution server for the purposes
-// of pulling an image.
+// of pulling an image. It is a subset of the 'Puller' struct.
 type regClient struct {
 	// imgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
 	imgRef imageRef
@@ -111,26 +110,26 @@ func (rc regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
 }
 
 // v2Blobs wraps a call to 'v2BlobsInternal' in concurrency handling if needed.
-// This supports using the package as a library by preventing multiple goroutines
-// from pulling the same blob. If that happens, the first go routine will pull,
-// and others will wait for the first goroutine to finish.
+// This supports using the package as a library by synchronizing multiple goroutines
+// pulling the same blob. If that happens, the first go routine will pull, and
+// others will wait for the first goroutine to finish.
 func (rc regClient) v2Blobs(layer Layer, toFile string) error {
 	if f, err := os.Stat(toFile); err == nil && f.Size() == int64(layer.Size) {
-		// already exists
+		// already exists on the file system
 		return nil
 	}
 	if !concurrentBlobs {
 		return rc.v2BlobsInternal(layer, toFile)
 	}
-	so := writeSyncer.enqueueGet(layer.Digest)
+	so := enqueueGet(layer.Digest)
 	var err error
 	go func() {
-		if so.enqueResult == notEnqueued {
-			defer writeSyncer.doneGet(layer.Digest, so)
+		if so.result == notEnqueued {
+			defer doneGet(layer.Digest)
 			err = rc.v2BlobsInternal(layer, toFile)
 		}
 	}()
-	waitResult := writeSyncer.wait(so)
+	waitResult := wait(so)
 	if err != nil {
 		// blob pull err
 		return err
@@ -173,16 +172,6 @@ func (rc regClient) v2BlobsInternal(layer Layer, toFile string) error {
 		return fmt.Errorf("error getting blob - expected %d bytes, got %d bytes instead", layer.Size, bytesRead)
 	}
 	return nil
-}
-
-// checkBlobExists builds a blob path from the passed args and returns the file name,
-// along with true if the file already exists, else false.
-func checkBlobExists(layer Layer, toPath string) (string, bool) {
-	fName := filepath.Join(toPath, digestFrom(layer.Digest))
-	if f, err := os.Stat(fName); err == nil && f.Size() == int64(layer.Size) {
-		return fName, true
-	}
-	return fName, false
 }
 
 // v2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in

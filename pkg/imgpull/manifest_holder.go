@@ -249,12 +249,13 @@ func (mh *ManifestHolder) NewImageTarball(iref imageRef, namespace string, sourc
 	return dtm, nil
 }
 
-// saveManifest extracts the manifest from the recevier and save it to a file
-// with the passed name in the passed path.
-func (mh *ManifestHolder) saveManifest(toPath string, name string) error {
-	json, err := mh.ToString()
-	if err != nil {
-		return err
-	}
-	return saveFile([]byte(json), toPath, name)
-}
+//// TODO DELETE
+//// saveManifest extracts the manifest from the recevier and save it to a file
+//// with the passed name in the passed path.
+//func (mh *ManifestHolder) saveManifest(toPath string, name string) error {
+//	json, err := mh.ToString()
+//	if err != nil {
+//		return err
+//	}
+//	return saveFile([]byte(json), toPath, name)
+//}
