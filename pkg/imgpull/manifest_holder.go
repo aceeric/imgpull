@@ -58,11 +58,30 @@ type ManifestHolder struct {
 	V2dockerManifest     v2docker.Manifest     `json:"v2.docker.Manifest"`
 }
 
-// NewManifestHolder initializes and returns a ManifestHolder struct for the passed
+// ToString renders the manifest held by the receiver into JSON. Only the
+// embedded manifest is returned - which will be a docker or oci manifest
+// list, or a docker or oci image manifest.
+func (mh *ManifestHolder) ToString() (string, error) {
+	var err error
+	var marshalled []byte
+	switch mh.Type {
+	case V2dockerManifestList:
+		marshalled, err = json.MarshalIndent(mh.V2dockerManifestList, "", "   ")
+	case V2dockerManifest:
+		marshalled, err = json.MarshalIndent(mh.V2dockerManifest, "", "   ")
+	case V1ociIndex:
+		marshalled, err = json.MarshalIndent(mh.V1ociIndex, "", "   ")
+	case V1ociManifest:
+		marshalled, err = json.MarshalIndent(mh.V1ociManifest, "", "   ")
+	}
+	return string(marshalled), err
+}
+
+// newManifestHolder initializes and returns a ManifestHolder struct for the passed
 // manifest bytes. The manifest bytes will be deserialized into one of the four manifest
 // variables based on the 'mediaType' arg.
-func NewManifestHolder(mediaType string, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
-	mt := ToManifestType(mediaType)
+func newManifestHolder(mediaType string, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
+	mt := toManifestType(mediaType)
 	if mt == Undefined {
 		return ManifestHolder{}, fmt.Errorf("unknown manifest type %q", mediaType)
 	}
@@ -71,17 +90,17 @@ func NewManifestHolder(mediaType string, bytes []byte, digest string, imageUrl s
 		Digest:   digest,
 		ImageUrl: imageUrl,
 	}
-	err := mh.UnMarshalManifest(mt, bytes)
+	err := mh.unMarshalManifest(mt, bytes)
 	if err != nil {
 		return ManifestHolder{}, err
 	}
 	return mh, nil
 }
 
-// ToManifestType returns the 'ManifestType' corrresponding to the passed
+// toManifestType returns the 'ManifestType' corrresponding to the passed
 // 'mediaType'. If the media type does not match one of the supported types then
 // the function returns 'Undefined'.
-func ToManifestType(mediaType string) ManifestType {
+func toManifestType(mediaType string) ManifestType {
 	switch mediaType {
 	case V2dockerManifestListMt:
 		return V2dockerManifestList
@@ -96,9 +115,9 @@ func ToManifestType(mediaType string) ManifestType {
 	}
 }
 
-// UnMarshalManifest unmarshals the passed bytes and stores the resulting typed manifest struct
+// unMarshalManifest unmarshals the passed bytes and stores the resulting typed manifest struct
 // in the corresponding manifest variable in the receiver struct.
-func (mh *ManifestHolder) UnMarshalManifest(mt ManifestType, bytes []byte) error {
+func (mh *ManifestHolder) unMarshalManifest(mt ManifestType, bytes []byte) error {
 	var err error
 	switch mt {
 	case V2dockerManifestList:
@@ -115,16 +134,16 @@ func (mh *ManifestHolder) UnMarshalManifest(mt ManifestType, bytes []byte) error
 	return err
 }
 
-// IsManifestList returns true of the manifest held by the ManifestHolder
+// isManifestList returns true of the manifest held by the ManifestHolder
 // receiver is a manifest list (not an image manifest.)
-func (mh *ManifestHolder) IsManifestList() bool {
+func (mh *ManifestHolder) isManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
 
-// Layers returns an array of 'Layer' for the manifest contained by the ManifestHolder
+// layers returns an array of 'Layer' for the manifest contained by the ManifestHolder
 // receiver. The Config is also returned since that is obtained using the v2/blobs
 // endpoint just like the image layers.
-func (mh *ManifestHolder) Layers() []Layer {
+func (mh *ManifestHolder) layers() []Layer {
 	layers := make([]Layer, 0)
 	switch mh.Type {
 	case V2dockerManifest:
@@ -161,49 +180,10 @@ func (mh *ManifestHolder) Layers() []Layer {
 	return layers
 }
 
-// ToString renders the manifest held by the receiver into JSON. Only the
-// embedded manifest is returned - which will be a docker or oci manifest
-// list, or a docker or oci image manifest.
-func (mh *ManifestHolder) ToString() (string, error) {
-	var err error
-	var marshalled []byte
-	switch mh.Type {
-	case V2dockerManifestList:
-		marshalled, err = json.MarshalIndent(mh.V2dockerManifestList, "", "   ")
-	case V2dockerManifest:
-		marshalled, err = json.MarshalIndent(mh.V2dockerManifest, "", "   ")
-	case V1ociIndex:
-		marshalled, err = json.MarshalIndent(mh.V1ociIndex, "", "   ")
-	case V1ociManifest:
-		marshalled, err = json.MarshalIndent(mh.V1ociManifest, "", "   ")
-	}
-	return string(marshalled), err
-}
-
-//// TODO DELETE
-//// GetImageConfig gets the 'Config' layer from the receiver, or an error if
-//// unable to do so.
-//func (mh *ManifestHolder) GetImageConfig() (Layer, error) {
-//	layer := Layer{}
-//	switch mh.Type {
-//	case V2dockerManifest:
-//		layer.Digest = mh.V2dockerManifest.Config.Digest
-//		layer.MediaType = mh.V2dockerManifest.Config.MediaType
-//		layer.Size = int(mh.V2dockerManifest.Config.Size)
-//	case V1ociManifest:
-//		layer.Digest = mh.V1ociManifest.Config.Digest
-//		layer.MediaType = mh.V1ociManifest.Config.MediaType
-//		layer.Size = int(mh.V1ociManifest.Config.Size)
-//	default:
-//		return layer, fmt.Errorf("can't get image config from %q kind of manifest", manifestTypeToString[mh.Type])
-//	}
-//	return layer, nil
-//}
-
-// GetImageDigestFor looks in the manifest list in the receiver for a manifest in the list
+// getImageDigestFor looks in the manifest list in the receiver for a manifest in the list
 // matching the passed OS and architecture and if found returns it. Otherwise an error is
 // returned.
-func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, error) {
+func (mh *ManifestHolder) getImageDigestFor(os string, arch string) (string, error) {
 	switch mh.Type {
 	case V2dockerManifestList:
 		for _, mfst := range mh.V2dockerManifestList.Manifests {
@@ -221,12 +201,12 @@ func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, err
 	return "", fmt.Errorf("unable to get manifest SHA for os %q, arch %q", os, arch)
 }
 
-// NewImageTarball creates an 'imageTarball' struct from the passed receiver and args.
+// newImageTarball creates an 'imageTarball' struct from the passed receiver and args.
 // It supports pull-though by virtue of the 'namespace' arg. The 'sourceDir' arg
 // specifies where the blob files can be found. The function doesn't create the tarball
 // but the struct that is returned has everything needed for the caller to create the
 // tarball.
-func (mh *ManifestHolder) NewImageTarball(iref imageRef, namespace string, sourceDir string) (imageTarball, error) {
+func (mh *ManifestHolder) newImageTarball(iref imageRef, namespace string, sourceDir string) (imageTarball, error) {
 	dtm := imageTarball{
 		sourceDir: sourceDir,
 	}
@@ -248,14 +228,3 @@ func (mh *ManifestHolder) NewImageTarball(iref imageRef, namespace string, sourc
 	}
 	return dtm, nil
 }
-
-//// TODO DELETE
-//// saveManifest extracts the manifest from the recevier and save it to a file
-//// with the passed name in the passed path.
-//func (mh *ManifestHolder) saveManifest(toPath string, name string) error {
-//	json, err := mh.ToString()
-//	if err != nil {
-//		return err
-//	}
-//	return saveFile([]byte(json), toPath, name)
-//}

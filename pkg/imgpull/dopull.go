@@ -26,7 +26,7 @@ func (p *Puller) PullTar(dest string) error {
 		return err
 	}
 	defer os.Remove(tmpDir)
-	if itb, err := p.Pull(tmpDir); err != nil {
+	if itb, err := p.pull(tmpDir); err != nil {
 		return err
 	} else {
 		_, err := itb.toTar(dest)
@@ -48,11 +48,11 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	if mh.IsManifestList() {
+	if mh.isManifestList() {
 		if mpt == ImageList {
 			return mh, nil
 		}
-		digest, err := mh.GetImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
+		digest, err := mh.getImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
 		if err != nil {
 			return ManifestHolder{}, err
 		}
@@ -71,49 +71,13 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	}
 }
 
-// Pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
-// An 'imageTarball' struct is returned that describes the pulled image. The directory
-// specfied by 'blobDir' will be populated with:
-//
-//  1. The configuration blob
-//  2. The layer blobs.
-//
-// All blobs are saved into this directory with filenames consisting of 64-character digests.
-func (p *Puller) Pull(blobDir string) (imageTarball, error) {
-	if err := p.connect(); err != nil {
-		return imageTarball{}, err
-	}
-	rc := p.regCliFrom()
-	mh, err := rc.v2Manifests("")
-	if err != nil {
-		return imageTarball{}, err
-	}
-	if mh.IsManifestList() {
-		digest, err := mh.GetImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
-		if err != nil {
-			return imageTarball{}, err
-		}
-		im, err := rc.v2Manifests(digest)
-		if err != nil {
-			return imageTarball{}, err
-		}
-		mh = im
-	}
-	for _, layer := range mh.Layers() {
-		if rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))) != nil {
-			return imageTarball{}, err
-		}
-	}
-	return mh.NewImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
-}
-
 // PullBlobs pulls the blobs for an image, writing them into 'blobDir'.
 func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	if err := p.connect(); err != nil {
 		return err
 	}
 	rc := p.regCliFrom()
-	for _, layer := range mh.Layers() {
+	for _, layer := range mh.layers() {
 		if err := rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))); err != nil {
 			return err
 		}
@@ -143,6 +107,42 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 		return ManifestHolder{}, err
 	}
 	return p.regCliFrom().v2Manifests("")
+}
+
+// pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
+// An 'imageTarball' struct is returned that describes the pulled image. The directory
+// specfied by 'blobDir' will be populated with:
+//
+//  1. The configuration blob
+//  2. The layer blobs.
+//
+// All blobs are saved into this directory with filenames consisting of 64-character digests.
+func (p *Puller) pull(blobDir string) (imageTarball, error) {
+	if err := p.connect(); err != nil {
+		return imageTarball{}, err
+	}
+	rc := p.regCliFrom()
+	mh, err := rc.v2Manifests("")
+	if err != nil {
+		return imageTarball{}, err
+	}
+	if mh.isManifestList() {
+		digest, err := mh.getImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
+		if err != nil {
+			return imageTarball{}, err
+		}
+		im, err := rc.v2Manifests(digest)
+		if err != nil {
+			return imageTarball{}, err
+		}
+		mh = im
+	}
+	for _, layer := range mh.layers() {
+		if rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))) != nil {
+			return imageTarball{}, err
+		}
+	}
+	return mh.newImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
 }
 
 // possible future use
@@ -248,8 +248,8 @@ func (p *Puller) regCliFrom() regClient {
 //	Bearer realm="https://auth.docker.io/token",service="registry.docker.io"
 //
 // The function returns the parsed result in the 'BearerAuth' struct.
-func parseBearer(authHdr string) BearerAuth {
-	ba := BearerAuth{}
+func parseBearer(authHdr string) bearerAuth {
+	ba := bearerAuth{}
 	parts := []string{"realm", "service"}
 	expr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,]*)"{1}`
 	for _, part := range parts {
@@ -258,9 +258,9 @@ func parseBearer(authHdr string) BearerAuth {
 		matches := m.FindStringSubmatch(authHdr)
 		if len(matches) == 2 {
 			if part == "realm" {
-				ba.Realm = strings.ReplaceAll(matches[1], "\"", "")
+				ba.realm = strings.ReplaceAll(matches[1], "\"", "")
 			} else {
-				ba.Service = strings.ReplaceAll(matches[1], "\"", "")
+				ba.service = strings.ReplaceAll(matches[1], "\"", "")
 			}
 		}
 	}

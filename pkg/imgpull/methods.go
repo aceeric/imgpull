@@ -66,7 +66,7 @@ func (rc regClient) v2() (int, []string, error) {
 // v2Basic calls the 'v2' endpoint with a basic auth header formed from
 // the username and password encoded in the passed string. If successful, the
 // credentials are returned to the caller for use on subsequent calls.
-func (rc regClient) v2Basic(encoded string) (BasicAuth, error) {
+func (rc regClient) v2Basic(encoded string) (basicAuth, error) {
 	url := fmt.Sprintf("%s/v2/", rc.imgRef.serverUrl())
 	req, _ := http.NewRequest(http.MethodHead, url, nil)
 	req.Header.Set("Authorization", "Basic "+encoded)
@@ -75,36 +75,36 @@ func (rc regClient) v2Basic(encoded string) (BasicAuth, error) {
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		return BasicAuth{}, err
+		return basicAuth{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return BasicAuth{}, fmt.Errorf("basic auth returned status code %d", resp.StatusCode)
+		return basicAuth{}, fmt.Errorf("basic auth returned status code %d", resp.StatusCode)
 	}
-	return BasicAuth{Encoded: encoded}, nil
+	return basicAuth{encoded: encoded}, nil
 }
 
 // v2Auth calls the 'v2/auth' endpoint with the passed bearer struct which has
 // realm and service. These are used to build the auth URL. The realm might be different
 // than the server that we have been requested to pull from.  If successful, the
 // bearer token is returned to the caller for use on subsequent calls.
-func (rc regClient) v2Auth(ba BearerAuth) (BearerToken, error) {
-	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, rc.imgRef.repository, ba.Service)
+func (rc regClient) v2Auth(ba bearerAuth) (bearerToken, error) {
+	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.realm, rc.imgRef.repository, ba.service)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	resp, err := rc.client.Do(req)
 	if err != nil {
-		return BearerToken{}, err
+		return bearerToken{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return BearerToken{}, fmt.Errorf("auth attempt failed. Status: %d", resp.StatusCode)
+		return bearerToken{}, fmt.Errorf("auth attempt failed. Status: %d", resp.StatusCode)
 	}
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	var token BearerToken
+	var token bearerToken
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&token)
 	if err != nil {
-		return BearerToken{}, err
+		return bearerToken{}, err
 	}
 	return token, nil
 }
@@ -215,7 +215,7 @@ func (rc regClient) v2Manifests(sha string) (ManifestHolder, error) {
 			return ManifestHolder{}, fmt.Errorf("digest mismatch for %q", ref)
 		}
 	}
-	mh, err := NewManifestHolder(mediaType, manifestBytes, manifestDigest, rc.makeUrl(sha))
+	mh, err := newManifestHolder(mediaType, manifestBytes, manifestDigest, rc.makeUrl(sha))
 	return mh, err
 }
 

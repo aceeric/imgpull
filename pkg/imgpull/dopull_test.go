@@ -39,7 +39,7 @@ func TestAuthParse(t *testing.T) {
 	}
 	for _, authHdrTest := range authHdrTests {
 		ba := parseBearer(authHdrTest.hdr)
-		if ba.Realm != authHdrTest.realm || ba.Service != authHdrTest.service {
+		if ba.realm != authHdrTest.realm || ba.service != authHdrTest.service {
 			t.Fail()
 		}
 	}
@@ -150,10 +150,10 @@ func TestPullManifest(t *testing.T) {
 				if err != nil {
 					t.Fail()
 				}
-				if mpt == ImageList && !mh.IsManifestList() {
+				if mpt == ImageList && !mh.isManifestList() {
 					t.Fail()
 				}
-				if mpt == Image && mh.IsManifestList() {
+				if mpt == Image && mh.isManifestList() {
 					t.Fail()
 				}
 			}
@@ -212,11 +212,11 @@ func TestPullTar(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	dtmActual := []DockerTarManifest{}
+	dtmActual := []dockerTarManifest{}
 	if json.Unmarshal(manifest, &dtmActual) != nil {
 		t.Fail()
 	}
-	dtmExp := DockerTarManifest{
+	dtmExp := dockerTarManifest{
 		Config:   "sha256:d2c94e258dcb3c5ac2798d32e1249e42ef01cba4841c2234249495f87264ac5a",
 		RepoTags: []string{imgUrl},
 		Layers:   []string{"c1ec31eb59444d78df06a974d155e597c894ab4cda84f08294145e845394988e.tar.gz"},

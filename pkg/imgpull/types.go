@@ -16,25 +16,6 @@ const (
 	V1ociLayerZstdMt       = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
-const SHA256PREFIX = "sha256:"
-
-// BearerAuth has the two parts of a bearer auth header that we need, in
-// order to request a bearer token from an OCI distribution server.
-type BearerAuth struct {
-	Realm   string
-	Service string
-}
-
-// BearerToken holds the bearer token value.
-type BearerToken struct {
-	Token string `json:"token"`
-}
-
-// BasicAuth holds the encoded username and password.
-type BasicAuth struct {
-	Encoded string `json:"encoded"`
-}
-
 // ManifestDescriptor has the information returned from a v2 manifests
 // HEAD request to an OCI distribution server. A HEAD request returns a subset
 // if manifest info.
@@ -64,4 +45,23 @@ func newLayer(mediaType string, digest string, size int64) Layer {
 		Digest:    digest,
 		Size:      int(size),
 	}
+}
+
+const SHA256PREFIX = "sha256:"
+
+// bearerAuth has the two parts of a bearer auth header that we need, in
+// order to request a bearer token from an OCI distribution server.
+type bearerAuth struct {
+	realm   string
+	service string
+}
+
+// bearerToken holds the bearer token value.
+type bearerToken struct {
+	token string
+}
+
+// basicAuth holds the encoded username and password.
+type basicAuth struct {
+	encoded string
 }

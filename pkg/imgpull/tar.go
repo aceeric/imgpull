@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-// DockerTarManifest is the structure of 'manifest.json' that you would find
+// dockerTarManifest is the structure of 'manifest.json' that you would find
 // in a tarball produced by 'docker save'.
-type DockerTarManifest struct {
+type dockerTarManifest struct {
 	Config   string   `json:"config"`
 	RepoTags []string `json:"repoTags"`
 	Layers   []string `json:"layers"`
@@ -37,14 +37,14 @@ type imageTarball struct {
 // to the path/file specified in the 'tarfile' arg. The function returns a
 // 'DockerTarManifest' struct that looks exactly like the 'manifest.json' file
 // in the tarball.
-func (tb imageTarball) toTar(tarfile string) (DockerTarManifest, error) {
-	dtm := DockerTarManifest{
+func (tb imageTarball) toTar(tarfile string) (dockerTarManifest, error) {
+	dtm := dockerTarManifest{
 		Config:   "sha256:" + tb.configDigest,
 		RepoTags: []string{tb.imageUrl},
 	}
 	file, err := os.Create(tarfile)
 	if err != nil {
-		return DockerTarManifest{}, err
+		return dockerTarManifest{}, err
 	}
 	defer file.Close()
 	tw := tar.NewWriter(file)
@@ -52,27 +52,27 @@ func (tb imageTarball) toTar(tarfile string) (DockerTarManifest, error) {
 
 	for _, layer := range tb.layers {
 		if ext, err := extensionForLayer(layer.MediaType); err != nil {
-			return DockerTarManifest{}, err
+			return dockerTarManifest{}, err
 		} else {
 			fname := digestFrom(layer.Digest)
 			dtm.Layers = append(dtm.Layers, fname+ext)
 			err = addFile(tw, filepath.Join(tb.sourceDir, fname), fname+ext)
 			if err != nil {
-				return DockerTarManifest{}, err
+				return dockerTarManifest{}, err
 			}
 		}
 	}
 	manifest, err := dtm.toString()
 	if err != nil {
-		return DockerTarManifest{}, err
+		return dockerTarManifest{}, err
 	}
 	err = addString(tw, string(manifest), "manifest.json")
 	if err != nil {
-		return DockerTarManifest{}, err
+		return dockerTarManifest{}, err
 	}
 	err = addFile(tw, filepath.Join(tb.sourceDir, tb.configDigest), dtm.Config)
 	if err != nil {
-		return DockerTarManifest{}, err
+		return dockerTarManifest{}, err
 	}
 	return dtm, nil
 }
@@ -82,8 +82,8 @@ func (tb imageTarball) toTar(tarfile string) (DockerTarManifest, error) {
 // the manifest has be contained within in an array of DockerTarManifest. The output
 // of this function can be written directly to the 'manifest.json' file in an
 // image tarball.
-func (dtm *DockerTarManifest) toString() ([]byte, error) {
-	manifestArray := make([]DockerTarManifest, 1)
+func (dtm *dockerTarManifest) toString() ([]byte, error) {
+	manifestArray := make([]dockerTarManifest, 1)
 	manifestArray[0] = *dtm
 	return json.MarshalIndent(manifestArray, "", "   ")
 }
