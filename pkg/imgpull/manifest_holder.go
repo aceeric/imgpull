@@ -3,6 +3,7 @@ package imgpull
 import (
 	"encoding/json"
 	"fmt"
+	"imgpull/internal/util"
 	"imgpull/pkg/imgpull/v1oci"
 	"imgpull/pkg/imgpull/v2docker"
 )
@@ -212,13 +213,13 @@ func (mh *ManifestHolder) newImageTarball(iref imageRef, namespace string, sourc
 	}
 	switch mh.Type {
 	case V2dockerManifest:
-		dtm.configDigest = digestFrom(mh.V2dockerManifest.Config.Digest)
+		dtm.configDigest = util.DigestFrom(mh.V2dockerManifest.Config.Digest)
 		dtm.imageUrl = iref.imageUrlWithNs(namespace)
 		for _, layer := range mh.V2dockerManifest.Layers {
 			dtm.layers = append(dtm.layers, newLayer(layer.MediaType, layer.Digest, layer.Size))
 		}
 	case V1ociManifest:
-		dtm.configDigest = digestFrom(mh.V1ociManifest.Config.Digest)
+		dtm.configDigest = util.DigestFrom(mh.V1ociManifest.Config.Digest)
 		dtm.imageUrl = iref.imageUrlWithNs(namespace)
 		for _, layer := range mh.V1ociManifest.Layers {
 			dtm.layers = append(dtm.layers, newLayer(layer.MediaType, layer.Digest, layer.Size))

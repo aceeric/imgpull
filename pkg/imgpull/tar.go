@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"encoding/json"
 	"fmt"
+	"imgpull/internal/util"
 	"io"
 	"os"
 	"os/user"
@@ -54,7 +55,7 @@ func (tb imageTarball) toTar(tarfile string) (dockerTarManifest, error) {
 		if ext, err := extensionForLayer(layer.MediaType); err != nil {
 			return dockerTarManifest{}, err
 		} else {
-			fname := digestFrom(layer.Digest)
+			fname := util.DigestFrom(layer.Digest)
 			dtm.Layers = append(dtm.Layers, fname+ext)
 			err = addFile(tw, filepath.Join(tb.sourceDir, fname), fname+ext)
 			if err != nil {

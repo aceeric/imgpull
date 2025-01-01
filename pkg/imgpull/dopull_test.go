@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"imgpull/internal/util"
 	"imgpull/mock"
 	"net/http"
 	"net/http/httptest"
@@ -236,7 +237,7 @@ func TestPullTar(t *testing.T) {
 		hasher := sha256.New()
 		hasher.Write(bytes)
 		digestActual := digest.FromBytes(bytes).Hex()
-		digestExp := digestFrom(layer)
+		digestExp := util.DigestFrom(layer)
 		if digestExp != digestActual {
 			t.Fail()
 		}

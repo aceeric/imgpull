@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"imgpull/internal/blobsync"
+	"imgpull/internal/util"
 	"io"
 	"net/http"
 	"os"
@@ -211,7 +212,7 @@ func (rc regClient) v2Manifests(sha string) (ManifestHolder, error) {
 	if manifestDigest == "" {
 		manifestDigest = computedDigest
 	} else {
-		manifestDigest = digestFrom(manifestDigest)
+		manifestDigest = util.DigestFrom(manifestDigest)
 		if computedDigest != manifestDigest {
 			return ManifestHolder{}, fmt.Errorf("digest mismatch for %q", ref)
 		}
@@ -286,7 +287,7 @@ func (rc regClient) makeUrl(sha string) string {
 	if strings.HasPrefix(rc.imgRef.ref, "sha256:") {
 		refToUse = "@" + rc.imgRef.ref
 	} else if sha != "" {
-		refToUse = "@sha256:" + digestFrom(sha)
+		refToUse = "@sha256:" + util.DigestFrom(sha)
 	} else {
 		refToUse = ":" + rc.imgRef.ref
 	}

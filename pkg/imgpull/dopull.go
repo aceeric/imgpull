@@ -3,6 +3,7 @@ package imgpull
 import (
 	"encoding/base64"
 	"fmt"
+	"imgpull/internal/util"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -78,7 +79,7 @@ func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	}
 	rc := p.regCliFrom()
 	for _, layer := range mh.layers() {
-		if err := rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))); err != nil {
+		if err := rc.v2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
 			return err
 		}
 	}
@@ -138,7 +139,7 @@ func (p *Puller) pull(blobDir string) (imageTarball, error) {
 		mh = im
 	}
 	for _, layer := range mh.layers() {
-		if rc.v2Blobs(layer, filepath.Join(blobDir, digestFrom(layer.Digest))) != nil {
+		if rc.v2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))) != nil {
 			return imageTarball{}, err
 		}
 	}
