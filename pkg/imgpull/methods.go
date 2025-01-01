@@ -3,6 +3,7 @@ package imgpull
 import (
 	"encoding/json"
 	"fmt"
+	"imgpull/internal/blobsync"
 	"io"
 	"net/http"
 	"os"
@@ -118,18 +119,18 @@ func (rc regClient) v2Blobs(layer Layer, toFile string) error {
 		// already exists on the file system
 		return nil
 	}
-	if !concurrentBlobs {
+	if !blobsync.ConcurrentBlobs {
 		return rc.v2BlobsInternal(layer, toFile)
 	}
-	so := enqueueGet(layer.Digest)
+	so := blobsync.EnqueueGet(layer.Digest)
 	var err error
 	go func() {
-		if so.result == notEnqueued {
-			defer doneGet(layer.Digest)
+		if so.Result == blobsync.NotEnqueued {
+			defer blobsync.DoneGet(layer.Digest)
 			err = rc.v2BlobsInternal(layer, toFile)
 		}
 	}()
-	waitResult := wait(so)
+	waitResult := blobsync.Wait(so)
 	if err != nil {
 		// blob pull err
 		return err

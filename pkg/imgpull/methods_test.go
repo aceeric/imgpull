@@ -2,6 +2,7 @@ package imgpull
 
 import (
 	"fmt"
+	"imgpull/internal/blobsync"
 	"imgpull/mock"
 	"net/http"
 	"net/http/httptest"
@@ -130,7 +131,7 @@ func TestV2BlobsConcur(t *testing.T) {
 	d, _ := os.MkdirTemp("", "")
 	defer os.RemoveAll(d)
 
-	SetConcurrentBlobs(10)
+	blobsync.SetConcurrentBlobs(10)
 
 	var wg sync.WaitGroup
 	blobPullerCnt := 6

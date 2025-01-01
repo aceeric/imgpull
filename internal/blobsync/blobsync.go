@@ -1,4 +1,4 @@
-package imgpull
+package blobsync
 
 import (
 	"errors"
@@ -6,22 +6,22 @@ import (
 	"time"
 )
 
-// enqueueResult represents the result of enqueing a blob pull.
-type enqueueResult bool
+// EnqueueResult represents the result of enqueing a blob pull.
+type EnqueueResult bool
 
-// isEnqueued means that another goroutine already requested a blob for a
+// IsEnqueued means that another goroutine already requested a blob for a
 // given digest.
-const isEnqueued enqueueResult = true
+const IsEnqueued EnqueueResult = true
 
-// notEnqueued means no other goroutine has requested a blob with a given
+// NotEnqueued means no other goroutine has requested a blob with a given
 // digest and so the caller must pull it.
-const notEnqueued enqueueResult = false
+const NotEnqueued EnqueueResult = false
 
-// syncObj has a channel created by an enqueueing action, and the
+// SyncObj has a channel created by an enqueueing action, and the
 // result of the enqueueing.
-type syncObj struct {
-	ch     chan bool
-	result enqueueResult
+type SyncObj struct {
+	Ch     chan bool
+	Result EnqueueResult
 }
 
 // pullMap supports multiple threads attempting to pull the same blob concurrently.
@@ -35,7 +35,7 @@ type pullMap struct {
 
 var (
 	// concurrency blob pull synchronization is off by default.
-	concurrentBlobs = false
+	ConcurrentBlobs = false
 	// blobTimeoutSec specifies - for the concurrent write syncer - how long
 	// to wait to be signaled when the blob is done pulling. It is ignored
 	// unless concurrency is enabled.
@@ -52,34 +52,34 @@ var (
 func SetConcurrentBlobs(timeoutSec int) {
 	blobTimeoutSec = timeoutSec
 	blobPulls.pullMap = make(map[string][]chan bool)
-	concurrentBlobs = true
+	ConcurrentBlobs = true
 }
 
-// enqueueGet enqueues a pull for a blob using the passed digest. If there are
+// EnqueueGet enqueues a pull for a blob using the passed digest. If there are
 // no other requesters, then the function returns 'notEnqueued' - meaning the caller
 // is the first requester and therefore will have to actually pull the blob. If a
 // request was previously enqueued for the blob then 'isEnqueued' is returned meaning
 // the caller should simply wait for a signal on the channel in the returned syncObj
 // struct.
-func enqueueGet(digest string) syncObj {
-	so := syncObj{
-		ch:     make(chan bool),
-		result: notEnqueued,
+func EnqueueGet(digest string) SyncObj {
+	so := SyncObj{
+		Ch:     make(chan bool),
+		Result: NotEnqueued,
 	}
 	blobPulls.mu.Lock()
 	chans, exists := blobPulls.pullMap[digest]
 	if exists {
-		blobPulls.pullMap[digest] = append(chans, so.ch)
-		so.result = isEnqueued
+		blobPulls.pullMap[digest] = append(chans, so.Ch)
+		so.Result = IsEnqueued
 	} else {
-		blobPulls.pullMap[digest] = []chan bool{so.ch}
+		blobPulls.pullMap[digest] = []chan bool{so.Ch}
 	}
 	blobPulls.mu.Unlock()
 	return so
 }
 
-// doneGet signals all waiters that are associated with the digest in arg 1.
-func doneGet(digest string) {
+// DoneGet signals all waiters that are associated with the digest in arg 1.
+func DoneGet(digest string) {
 	blobPulls.mu.Lock()
 	chans, exists := blobPulls.pullMap[digest]
 	if exists {
@@ -100,11 +100,11 @@ func doneGet(digest string) {
 	blobPulls.mu.Unlock()
 }
 
-// wait waits to be signaled on the channel in the passed syncObj, or times out
+// Wait waits to be signaled on the channel in the passed syncObj, or times out
 // based on the value of the package blobTimeoutSec variable.
-func wait(so syncObj) error {
+func Wait(so SyncObj) error {
 	select {
-	case <-so.ch:
+	case <-so.Ch:
 		return nil
 	case <-time.After(time.Duration(blobTimeoutSec) * time.Second):
 		return errors.New("timeout exceeded pulling image")
