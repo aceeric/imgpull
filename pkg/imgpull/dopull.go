@@ -3,6 +3,7 @@ package imgpull
 import (
 	"encoding/base64"
 	"fmt"
+	"imgpull/internal/tar"
 	"imgpull/internal/util"
 	"net/http"
 	"os"
@@ -30,7 +31,7 @@ func (p *Puller) PullTar(dest string) error {
 	if itb, err := p.pull(tmpDir); err != nil {
 		return err
 	} else {
-		_, err := itb.toTar(dest)
+		_, err := itb.ToTar(dest)
 		return err
 	}
 }
@@ -118,29 +119,29 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 //  2. The layer blobs.
 //
 // All blobs are saved into this directory with filenames consisting of 64-character digests.
-func (p *Puller) pull(blobDir string) (imageTarball, error) {
+func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 	if err := p.connect(); err != nil {
-		return imageTarball{}, err
+		return tar.ImageTarball{}, err
 	}
 	rc := p.regCliFrom()
 	mh, err := rc.v2Manifests("")
 	if err != nil {
-		return imageTarball{}, err
+		return tar.ImageTarball{}, err
 	}
 	if mh.isManifestList() {
 		digest, err := mh.getImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
 		if err != nil {
-			return imageTarball{}, err
+			return tar.ImageTarball{}, err
 		}
 		im, err := rc.v2Manifests(digest)
 		if err != nil {
-			return imageTarball{}, err
+			return tar.ImageTarball{}, err
 		}
 		mh = im
 	}
 	for _, layer := range mh.layers() {
 		if rc.v2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))) != nil {
-			return imageTarball{}, err
+			return tar.ImageTarball{}, err
 		}
 	}
 	return mh.newImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)

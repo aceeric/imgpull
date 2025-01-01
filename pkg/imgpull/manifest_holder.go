@@ -3,7 +3,9 @@ package imgpull
 import (
 	"encoding/json"
 	"fmt"
+	"imgpull/internal/tar"
 	"imgpull/internal/util"
+	"imgpull/pkg/imgpull/types"
 	"imgpull/pkg/imgpull/v1oci"
 	"imgpull/pkg/imgpull/v2docker"
 )
@@ -103,13 +105,13 @@ func newManifestHolder(mediaType string, bytes []byte, digest string, imageUrl s
 // the function returns 'Undefined'.
 func toManifestType(mediaType string) ManifestType {
 	switch mediaType {
-	case V2dockerManifestListMt:
+	case types.V2dockerManifestListMt:
 		return V2dockerManifestList
-	case V2dockerManifestMt:
+	case types.V2dockerManifestMt:
 		return V2dockerManifest
-	case V1ociIndexMt:
+	case types.V1ociIndexMt:
 		return V1ociIndex
-	case V1ociManifestMt:
+	case types.V1ociManifestMt:
 		return V1ociManifest
 	default:
 		return Undefined
@@ -144,19 +146,19 @@ func (mh *ManifestHolder) isManifestList() bool {
 // layers returns an array of 'Layer' for the manifest contained by the ManifestHolder
 // receiver. The Config is also returned since that is obtained using the v2/blobs
 // endpoint just like the image layers.
-func (mh *ManifestHolder) layers() []Layer {
-	layers := make([]Layer, 0)
+func (mh *ManifestHolder) layers() []types.Layer {
+	layers := make([]types.Layer, 0)
 	switch mh.Type {
 	case V2dockerManifest:
 		for _, l := range mh.V2dockerManifest.Layers {
-			nl := Layer{
+			nl := types.Layer{
 				Digest:    l.Digest,
 				MediaType: l.MediaType,
 				Size:      int(l.Size),
 			}
 			layers = append(layers, nl)
 		}
-		nl := Layer{
+		nl := types.Layer{
 			Digest:    mh.V2dockerManifest.Config.Digest,
 			MediaType: mh.V2dockerManifest.Config.MediaType,
 			Size:      int(mh.V2dockerManifest.Config.Size),
@@ -164,14 +166,14 @@ func (mh *ManifestHolder) layers() []Layer {
 		layers = append(layers, nl)
 	case V1ociManifest:
 		for _, l := range mh.V1ociManifest.Layers {
-			nl := Layer{
+			nl := types.Layer{
 				Digest:    l.Digest,
 				MediaType: l.MediaType,
 				Size:      int(l.Size),
 			}
 			layers = append(layers, nl)
 		}
-		nl := Layer{
+		nl := types.Layer{
 			Digest:    mh.V1ociManifest.Config.Digest,
 			MediaType: mh.V1ociManifest.Config.MediaType,
 			Size:      int(mh.V1ociManifest.Config.Size),
@@ -207,22 +209,22 @@ func (mh *ManifestHolder) getImageDigestFor(os string, arch string) (string, err
 // specifies where the blob files can be found. The function doesn't create the tarball
 // but the struct that is returned has everything needed for the caller to create the
 // tarball.
-func (mh *ManifestHolder) newImageTarball(iref imageRef, namespace string, sourceDir string) (imageTarball, error) {
-	dtm := imageTarball{
-		sourceDir: sourceDir,
+func (mh *ManifestHolder) newImageTarball(iref imageRef, namespace string, sourceDir string) (tar.ImageTarball, error) {
+	dtm := tar.ImageTarball{
+		SourceDir: sourceDir,
 	}
 	switch mh.Type {
 	case V2dockerManifest:
-		dtm.configDigest = util.DigestFrom(mh.V2dockerManifest.Config.Digest)
-		dtm.imageUrl = iref.imageUrlWithNs(namespace)
+		dtm.ConfigDigest = util.DigestFrom(mh.V2dockerManifest.Config.Digest)
+		dtm.ImageUrl = iref.imageUrlWithNs(namespace)
 		for _, layer := range mh.V2dockerManifest.Layers {
-			dtm.layers = append(dtm.layers, newLayer(layer.MediaType, layer.Digest, layer.Size))
+			dtm.Layers = append(dtm.Layers, types.NewLayer(layer.MediaType, layer.Digest, layer.Size))
 		}
 	case V1ociManifest:
-		dtm.configDigest = util.DigestFrom(mh.V1ociManifest.Config.Digest)
-		dtm.imageUrl = iref.imageUrlWithNs(namespace)
+		dtm.ConfigDigest = util.DigestFrom(mh.V1ociManifest.Config.Digest)
+		dtm.ImageUrl = iref.imageUrlWithNs(namespace)
 		for _, layer := range mh.V1ociManifest.Layers {
-			dtm.layers = append(dtm.layers, newLayer(layer.MediaType, layer.Digest, layer.Size))
+			dtm.Layers = append(dtm.Layers, types.NewLayer(layer.MediaType, layer.Digest, layer.Size))
 		}
 	default:
 		return dtm, fmt.Errorf("can't create docker tar manifest from %q kind of manifest", manifestTypeToString[mh.Type])

@@ -1,5 +1,4 @@
 
 - review all errors
 - restructure with 'internal' package
-  - redo make test
 - examples (of how to use as a library)

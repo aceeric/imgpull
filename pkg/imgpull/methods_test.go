@@ -3,7 +3,9 @@ package imgpull
 import (
 	"fmt"
 	"imgpull/internal/blobsync"
+	"imgpull/internal/testhelpers"
 	"imgpull/mock"
+	"imgpull/pkg/imgpull/types"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -48,13 +50,13 @@ func TestV2(t *testing.T) {
 func TestV2BlobsExists(t *testing.T) {
 	d, _ := os.MkdirTemp("", "")
 	defer os.RemoveAll(d)
-	digest := makeDigest()
+	digest := testhelpers.MakeDigest()
 	blobFile := filepath.Join(d, digest)
 	err := os.WriteFile(blobFile, []byte(digest), 0644)
 	if err != nil {
 		t.Fail()
 	}
-	layer := Layer{
+	layer := types.Layer{
 		MediaType: "unused.by.this.test",
 		Digest:    digest,
 		Size:      len(digest),
@@ -88,8 +90,8 @@ func TestV2BlobsSimple(t *testing.T) {
 	blobFile := filepath.Join(d, digest)
 
 	rc := p.regCliFrom()
-	layer := Layer{
-		MediaType: V2dockerLayerGzipMt,
+	layer := types.Layer{
+		MediaType: types.V2dockerLayerGzipMt,
 		Digest:    digest,
 		Size:      581, // mock/testfiles/d2c9.json
 	}
@@ -103,7 +105,7 @@ func TestV2BlobsSimple(t *testing.T) {
 // v2/blobs endpoint. (The others were therefore enqueued.)
 func TestV2BlobsConcur(t *testing.T) {
 	blob := "zzzz"
-	digest := makeDigest()
+	digest := testhelpers.MakeDigest()
 
 	var httpMethodCnt atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -144,8 +146,8 @@ func TestV2BlobsConcur(t *testing.T) {
 				t.Fail()
 			}
 			rc := p.regCliFrom()
-			layer := Layer{
-				MediaType: V2dockerLayerGzipMt,
+			layer := types.Layer{
+				MediaType: types.V2dockerLayerGzipMt,
 				Digest:    "sha256:" + digest,
 				Size:      len(blob),
 			}

@@ -8,11 +8,11 @@ all:
 
 .PHONY: test
 test:
-	go test $(ROOT)/pkg/imgpull -v --cover
+	go test $(ROOT)/pkg/imgpull $(ROOT)/internal/... -v --cover
 
 .PHONY: coverprof
 coverprof:
-	go test $(ROOT)/pkg/imgpull -coverprofile=$(ROOT)/prof.out
+	go test $(ROOT)/pkg/imgpull $(ROOT)/internal/... -coverprofile=$(ROOT)/prof.out
 	go tool cover -html=$(ROOT)/prof.out
 
 .PHONY: imgpull

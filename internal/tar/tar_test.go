@@ -1,17 +1,14 @@
-package imgpull
+package tar
 
 import (
 	"archive/tar"
-	"bufio"
 	"bytes"
 	"fmt"
-	"io"
-	"math/rand/v2"
+	"imgpull/internal/testhelpers"
+	"imgpull/pkg/imgpull/types"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/opencontainers/go-digest"
 )
 
 // TestWriteFiles tests writing a physical file and a string "file"
@@ -47,7 +44,7 @@ func TestWriteFiles(t *testing.T) {
 	tw.Close()
 	tarfile.Close()
 
-	if untarFile(filepath.Join(d, "foobar.tar")) != nil {
+	if testhelpers.UntarFile(filepath.Join(d, "foobar.tar")) != nil {
 		t.Fail()
 	}
 
@@ -77,34 +74,34 @@ func TestTarNew(t *testing.T) {
 	}
 	defer os.RemoveAll(d)
 	tarfile := filepath.Join(d, "test.tar")
-	configDigest := makeDigest()
+	configDigest := testhelpers.MakeDigest()
 	err = os.WriteFile(filepath.Join(d, configDigest), []byte(configDigest), 0644)
 	if err != nil {
 		t.Fail()
 	}
 	url := "flathead.io/frobozz/fizzbin:v1.2.3"
-	layerDigest := makeDigest()
+	layerDigest := testhelpers.MakeDigest()
 	err = os.WriteFile(filepath.Join(d, layerDigest), []byte(layerDigest), 0644)
 	if err != nil {
 		t.Fail()
 	}
-	layers := []Layer{
+	layers := []types.Layer{
 		{
-			MediaType: V2dockerLayerGzipMt,
+			MediaType: types.V2dockerLayerGzipMt,
 			Digest:    layerDigest,
 			Size:      62,
 		},
 	}
-	dtm, err := imageTarball{
-		sourceDir:    d,
-		configDigest: configDigest,
-		imageUrl:     url,
-		layers:       layers,
-	}.toTar(tarfile)
+	dtm, err := ImageTarball{
+		SourceDir:    d,
+		ConfigDigest: configDigest,
+		ImageUrl:     url,
+		Layers:       layers,
+	}.ToTar(tarfile)
 	if err != nil {
 		t.Fail()
 	}
-	err = untarFile(tarfile)
+	err = testhelpers.UntarFile(tarfile)
 	if err != nil {
 		t.Fail()
 	}
@@ -133,51 +130,4 @@ func TestTarNew(t *testing.T) {
 	if !bytes.Equal(b, manifest) {
 		t.Fail()
 	}
-}
-
-// untarFile is a test helper that un-tars the passed file and appends
-// ".extracted" to the name of each extracted file. Files are co-located
-// with the tarfile. Limitation: it doesn't process directories.
-func untarFile(tarfile string) error {
-	f, err := os.Open(tarfile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	r := bufio.NewReader(f)
-	tarReader := tar.NewReader(r)
-	for {
-		header, err := tarReader.Next()
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return err
-		}
-		if header == nil {
-			continue
-		}
-		switch header.Typeflag {
-		case tar.TypeDir:
-			// ignore directories
-			continue
-		case tar.TypeReg:
-			p := filepath.Join(filepath.Dir(tarfile), header.Name+".extracted")
-			f, err := os.OpenFile(p, os.O_CREATE|os.O_RDWR, 0766)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-			if _, err := io.Copy(f, tarReader); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// makeDigest generates a random digest
-func makeDigest() string {
-	foo := fmt.Sprintf("%d", rand.Uint64())
-	return digest.FromBytes([]byte(foo)).Hex()
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"imgpull/internal/blobsync"
 	"imgpull/internal/util"
+	"imgpull/pkg/imgpull/types"
 	"io"
 	"net/http"
 	"os"
@@ -42,10 +43,10 @@ type regClient struct {
 // allManifestTypes lists all of the manifest types that this package
 // will operate on.
 var allManifestTypes []string = []string{
-	V2dockerManifestListMt,
-	V2dockerManifestMt,
-	V1ociIndexMt,
-	V1ociManifestMt,
+	types.V2dockerManifestListMt,
+	types.V2dockerManifestMt,
+	types.V1ociIndexMt,
+	types.V1ociManifestMt,
 }
 
 // calls the 'v2' endpoint which typically either returns OK or unauthorized. It is the first
@@ -115,7 +116,7 @@ func (rc regClient) v2Auth(ba bearerAuth) (bearerToken, error) {
 // This supports using the package as a library by synchronizing multiple goroutines
 // pulling the same blob. If that happens, the first go routine will pull, and
 // others will wait for the first goroutine to finish.
-func (rc regClient) v2Blobs(layer Layer, toFile string) error {
+func (rc regClient) v2Blobs(layer types.Layer, toFile string) error {
 	if f, err := os.Stat(toFile); err == nil && f.Size() == int64(layer.Size) {
 		// already exists on the file system
 		return nil
@@ -141,7 +142,7 @@ func (rc regClient) v2Blobs(layer Layer, toFile string) error {
 
 // v2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
 // passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
-func (rc regClient) v2BlobsInternal(layer Layer, toFile string) error {
+func (rc regClient) v2BlobsInternal(layer types.Layer, toFile string) error {
 	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.imgRef.serverUrl(), rc.imgRef.repository, layer.Digest, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	rc.setAuthHdr(req)

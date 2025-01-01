@@ -5,8 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"imgpull/internal/tar"
+	"imgpull/internal/testhelpers"
 	"imgpull/internal/util"
 	"imgpull/mock"
+	"imgpull/pkg/imgpull/types"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -206,18 +209,18 @@ func TestPullTar(t *testing.T) {
 	if p.PullTar(tarball) != nil {
 		t.Fail()
 	}
-	if untarFile(tarball) != nil {
+	if testhelpers.UntarFile(tarball) != nil {
 		t.Fail()
 	}
 	manifest, err := os.ReadFile(filepath.Join(d, "manifest.json.extracted"))
 	if err != nil {
 		t.Fail()
 	}
-	dtmActual := []dockerTarManifest{}
+	dtmActual := []tar.DockerTarManifest{}
 	if json.Unmarshal(manifest, &dtmActual) != nil {
 		t.Fail()
 	}
-	dtmExp := dockerTarManifest{
+	dtmExp := tar.DockerTarManifest{
 		Config:   "sha256:d2c94e258dcb3c5ac2798d32e1249e42ef01cba4841c2234249495f87264ac5a",
 		RepoTags: []string{imgUrl},
 		Layers:   []string{"c1ec31eb59444d78df06a974d155e597c894ab4cda84f08294145e845394988e.tar.gz"},
@@ -263,7 +266,7 @@ func TestHeadManifest(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	if md.MediaType != V1ociIndexMt {
+	if md.MediaType != types.V1ociIndexMt {
 		t.Fail()
 	}
 	mh, err := p.GetManifest()
