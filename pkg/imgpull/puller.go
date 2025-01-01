@@ -1,6 +1,8 @@
 package imgpull
 
 import (
+	"imgpull/internal/imgref"
+	"imgpull/pkg/imgpull/types"
 	"net/http"
 )
 
@@ -10,15 +12,15 @@ type Puller struct {
 	// Opts defines all the configurable behaviors of the puller.
 	Opts PullerOpts
 	// ImgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
-	ImgRef imageRef
+	ImgRef imgref.ImageRef
 	// Client is the HTTP client
 	Client *http.Client
 	// If the upstream requires bearer auth, this is the token received from
 	// the upstream registry
-	Token bearerToken
+	Token types.BearerToken
 	// If the upstream requires basic auth, this is the encoded user/pass
 	// from 'Opts'
-	Basic basicAuth
+	Basic types.BasicAuth
 	// Indicates that the struct has been used to negotiate a connection to
 	// the upstream OCI distribution server.
 	Connected bool
@@ -55,7 +57,7 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 	if err := o.validate(); err != nil {
 		return Puller{}, err
 	}
-	if ir, err := newImageRef(o.Url, o.Scheme); err != nil {
+	if ir, err := imgref.NewImageRef(o.Url, o.Scheme); err != nil {
 		return Puller{}, err
 	} else {
 		c := &http.Client{}
@@ -77,10 +79,10 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 // authHdr returns a key/value pair to set an auth header based on whether
 // the receiver is configured for bearer or basic auth.
 func (p *Puller) authHdr() (string, string) {
-	if p.Token != (bearerToken{}) {
-		return "Authorization", "Bearer " + p.Token.token
+	if p.Token != (types.BearerToken{}) {
+		return "Authorization", "Bearer " + p.Token.Token
 	} else if p.Opts.Username != "" {
-		return "Authorization", "Basic " + p.Basic.encoded
+		return "Authorization", "Basic " + p.Basic.Encoded
 	}
 	return "", ""
 }

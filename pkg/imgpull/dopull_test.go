@@ -43,7 +43,7 @@ func TestAuthParse(t *testing.T) {
 	}
 	for _, authHdrTest := range authHdrTests {
 		ba := parseBearer(authHdrTest.hdr)
-		if ba.realm != authHdrTest.realm || ba.service != authHdrTest.service {
+		if ba.Realm != authHdrTest.realm || ba.Service != authHdrTest.service {
 			t.Fail()
 		}
 	}

@@ -3,8 +3,10 @@ package imgpull
 import (
 	"encoding/base64"
 	"fmt"
+	"imgpull/internal/methods"
 	"imgpull/internal/tar"
 	"imgpull/internal/util"
+	"imgpull/pkg/imgpull/types"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -46,7 +48,11 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 		return ManifestHolder{}, err
 	}
 	rc := p.regCliFrom()
-	mh, err := rc.v2Manifests("")
+	mr, err := rc.V2Manifests("")
+	if err != nil {
+		return ManifestHolder{}, err
+	}
+	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, "")
 	if err != nil {
 		return ManifestHolder{}, err
 	}
@@ -58,7 +64,11 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 		if err != nil {
 			return ManifestHolder{}, err
 		}
-		im, err := rc.v2Manifests(digest)
+		mr, err := rc.V2Manifests(digest)
+		if err != nil {
+			return ManifestHolder{}, err
+		}
+		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, digest)
 		if err != nil {
 			return ManifestHolder{}, err
 		}
@@ -80,7 +90,7 @@ func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	}
 	rc := p.regCliFrom()
 	for _, layer := range mh.layers() {
-		if err := rc.v2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
+		if err := rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
 			return err
 		}
 	}
@@ -91,11 +101,11 @@ func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 // 'ManifestDescriptor' returned to the caller contains the image digest,
 // media type and manifest size, as provided by the upstream distribution
 // server.
-func (p *Puller) HeadManifest() (ManifestDescriptor, error) {
+func (p *Puller) HeadManifest() (types.ManifestDescriptor, error) {
 	if err := p.connect(); err != nil {
-		return ManifestDescriptor{}, err
+		return types.ManifestDescriptor{}, err
 	}
-	return p.regCliFrom().v2ManifestsHead()
+	return p.regCliFrom().V2ManifestsHead()
 }
 
 // GetManifest gets a manifest for the image in the receiver. If the receiver
@@ -108,7 +118,11 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
-	return p.regCliFrom().v2Manifests("")
+	mr, err := p.regCliFrom().V2Manifests("")
+	if err != nil {
+		return ManifestHolder{}, err
+	}
+	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, "")
 }
 
 // pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
@@ -124,7 +138,11 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 		return tar.ImageTarball{}, err
 	}
 	rc := p.regCliFrom()
-	mh, err := rc.v2Manifests("")
+	mr, err := rc.V2Manifests("")
+	if err != nil {
+		return tar.ImageTarball{}, err
+	}
+	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, "")
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
@@ -133,14 +151,18 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
-		im, err := rc.v2Manifests(digest)
+		mr, err := rc.V2Manifests(digest)
+		if err != nil {
+			return tar.ImageTarball{}, err
+		}
+		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, digest)
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
 		mh = im
 	}
 	for _, layer := range mh.layers() {
-		if rc.v2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))) != nil {
+		if rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))) != nil {
 			return tar.ImageTarball{}, err
 		}
 	}
@@ -156,7 +178,7 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 // 	if err := p.connect(); err != nil {
 // 		return ManifestHolder{}, err
 // 	}
-// 	return p.regCliFrom().v2Manifests(digest)
+// 	return p.regCliFrom().V2Manifests(digest)
 // }
 
 // connect calls the 'v2' endpoint and looks for an auth header. If an auth
@@ -172,7 +194,7 @@ func (p *Puller) connect() error {
 	if p.Connected {
 		return nil
 	}
-	status, auth, err := p.regCliFrom().v2()
+	status, auth, err := p.regCliFrom().V2()
 	if err != nil {
 		return err
 	}
@@ -201,7 +223,7 @@ func (p *Puller) authenticate(auth []string) error {
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			ba := parseBearer(hdr)
-			t, err := rc.v2Auth(ba)
+			t, err := rc.V2Auth(ba)
 			if err != nil {
 				return err
 			}
@@ -210,7 +232,7 @@ func (p *Puller) authenticate(auth []string) error {
 		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
 			delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
 			encoded := base64.StdEncoding.EncodeToString([]byte(delimited))
-			ba, err := rc.v2Basic(encoded)
+			ba, err := rc.V2Basic(encoded)
 			if err != nil {
 				return err
 			}
@@ -221,24 +243,24 @@ func (p *Puller) authenticate(auth []string) error {
 	return fmt.Errorf("unable to parse auth param: %v", auth)
 }
 
-// regCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
+// regCliFrom creates a 'regClient' from the receiver, consisting of a subset of receiver
 // fields needed to interact with the OCI Distribution Server V2 REST API. It supports
 // a looser coupling of the Puller from actually interacting with the distribution server.
 //
-// If this function is intended to return a RegClient to make API calls that require auth
+// If this function is intended to return a regClient to make API calls that require auth
 // headers, then the Connect function must previously have been called on the receiver so
 // that the auth struct in the receiver is initialized by virtue of that call. The auth
-// struct is copied into the returned RegClient struct which is used to set auth headers.
-func (p *Puller) regCliFrom() regClient {
-	c := regClient{
-		imgRef:    p.ImgRef,
-		client:    p.Client,
-		namespace: p.Opts.Namespace,
+// struct is copied into the returned regClient struct which is used to set auth headers.
+func (p *Puller) regCliFrom() methods.RegClient {
+	c := methods.RegClient{
+		ImgRef:    p.ImgRef,
+		Client:    p.Client,
+		Namespace: p.Opts.Namespace,
 	}
 	if k, v := p.authHdr(); k != "" {
-		c.authHdr = authHeader{
-			key:   k,
-			value: v,
+		c.AuthHdr = methods.AuthHeader{
+			Key:   k,
+			Value: v,
 		}
 	}
 	return c
@@ -250,8 +272,8 @@ func (p *Puller) regCliFrom() regClient {
 //	Bearer realm="https://auth.docker.io/token",service="registry.docker.io"
 //
 // The function returns the parsed result in the 'BearerAuth' struct.
-func parseBearer(authHdr string) bearerAuth {
-	ba := bearerAuth{}
+func parseBearer(authHdr string) types.BearerAuth {
+	ba := types.BearerAuth{}
 	parts := []string{"realm", "service"}
 	expr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,]*)"{1}`
 	for _, part := range parts {
@@ -260,9 +282,9 @@ func parseBearer(authHdr string) bearerAuth {
 		matches := m.FindStringSubmatch(authHdr)
 		if len(matches) == 2 {
 			if part == "realm" {
-				ba.realm = strings.ReplaceAll(matches[1], "\"", "")
+				ba.Realm = strings.ReplaceAll(matches[1], "\"", "")
 			} else {
-				ba.service = strings.ReplaceAll(matches[1], "\"", "")
+				ba.Service = strings.ReplaceAll(matches[1], "\"", "")
 			}
 		}
 	}

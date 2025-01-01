@@ -1,9 +1,10 @@
-package imgpull
+package methods
 
 import (
 	"encoding/json"
 	"fmt"
 	"imgpull/internal/blobsync"
+	"imgpull/internal/imgref"
 	"imgpull/internal/util"
 	"imgpull/pkg/imgpull/types"
 	"io"
@@ -20,24 +21,30 @@ const (
 	maxBlobBytes     = 100 * mebibytes
 )
 
-// authHeader is a key/value struct that supports creating and setting an auth
+// AuthHeader is a key/value struct that supports creating and setting an auth
 // header for the supported auth type (basic, bearer).
-type authHeader struct {
-	key   string
-	value string
+type AuthHeader struct {
+	Key   string
+	Value string
 }
 
-// regClient has everything needed to talk to an OCI Distribution server for the purposes
+// RegClient has everything needed to talk to an OCI Distribution server for the purposes
 // of pulling an image. It is a subset of the 'Puller' struct.
-type regClient struct {
-	// imgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
-	imgRef imageRef
-	// client is the HTTP client
-	client *http.Client
-	// namespace supports pull-through
-	namespace string
-	// authHdr supports the various auth types (basic, bearer)
-	authHdr authHeader
+type RegClient struct {
+	// ImgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
+	ImgRef imgref.ImageRef
+	// Client is the HTTP Client
+	Client *http.Client
+	// Namespace supports pull-through
+	Namespace string
+	// AuthHdr supports the various auth types (basic, bearer)
+	AuthHdr AuthHeader
+}
+
+type ManifestGetResult struct {
+	MediaType      string
+	ManifestBytes  []byte
+	ManifestDigest string
 }
 
 // allManifestTypes lists all of the manifest types that this package
@@ -49,13 +56,13 @@ var allManifestTypes []string = []string{
 	types.V1ociManifestMt,
 }
 
-// calls the 'v2' endpoint which typically either returns OK or unauthorized. It is the first
+// V2 calls the 'v2' endpoint which typically either returns OK or unauthorized. It is the first
 // API call made to an OCI Distribution server to initiate an image pull. Returns the http
 // status code, an array of auth headers (which could be empty), and an error if one occurred
 // or nil.
-func (rc regClient) v2() (int, []string, error) {
-	url := fmt.Sprintf("%s/v2/", rc.imgRef.serverUrl())
-	resp, err := rc.client.Head(url)
+func (rc RegClient) V2() (int, []string, error) {
+	url := fmt.Sprintf("%s/v2/", rc.ImgRef.ServerUrl())
+	resp, err := rc.Client.Head(url)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -66,70 +73,69 @@ func (rc regClient) v2() (int, []string, error) {
 	return resp.StatusCode, auth, err
 }
 
-// v2Basic calls the 'v2' endpoint with a basic auth header formed from
+// V2Basic calls the 'v2' endpoint with a basic auth header formed from
 // the username and password encoded in the passed string. If successful, the
 // credentials are returned to the caller for use on subsequent calls.
-func (rc regClient) v2Basic(encoded string) (basicAuth, error) {
-	url := fmt.Sprintf("%s/v2/", rc.imgRef.serverUrl())
+func (rc RegClient) V2Basic(encoded string) (types.BasicAuth, error) {
+	url := fmt.Sprintf("%s/v2/", rc.ImgRef.ServerUrl())
 	req, _ := http.NewRequest(http.MethodHead, url, nil)
 	req.Header.Set("Authorization", "Basic "+encoded)
-	resp, err := rc.client.Do(req)
+	resp, err := rc.Client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		return basicAuth{}, err
+		return types.BasicAuth{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return basicAuth{}, fmt.Errorf("basic auth returned status code %d", resp.StatusCode)
+		return types.BasicAuth{}, fmt.Errorf("basic auth returned status code %d", resp.StatusCode)
 	}
-	return basicAuth{encoded: encoded}, nil
+	return types.BasicAuth{Encoded: encoded}, nil
 }
 
-// v2Auth calls the 'v2/auth' endpoint with the passed bearer struct which has
+// V2Auth calls the 'v2/auth' endpoint with the passed bearer struct which has
 // realm and service. These are used to build the auth URL. The realm might be different
 // than the server that we have been requested to pull from.  If successful, the
 // bearer token is returned to the caller for use on subsequent calls.
-func (rc regClient) v2Auth(ba bearerAuth) (bearerToken, error) {
-	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.realm, rc.imgRef.repository, ba.service)
+func (rc RegClient) V2Auth(ba types.BearerAuth) (types.BearerToken, error) {
+	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, rc.ImgRef.Repository, ba.Service)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	resp, err := rc.client.Do(req)
+	resp, err := rc.Client.Do(req)
 	if err != nil {
-		return bearerToken{}, err
+		return types.BearerToken{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return bearerToken{}, fmt.Errorf("auth attempt failed. Status: %d", resp.StatusCode)
+		return types.BearerToken{}, fmt.Errorf("auth attempt failed. Status: %d", resp.StatusCode)
 	}
 	if resp != nil {
 		defer resp.Body.Close()
 	}
-	var token bearerToken
+	var token types.BearerToken
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&token)
 	if err != nil {
-		return bearerToken{}, err
+		return types.BearerToken{}, err
 	}
 	return token, nil
 }
 
-// v2Blobs wraps a call to 'v2BlobsInternal' in concurrency handling if needed.
+// V2Blobs wraps a call to 'v2BlobsInternal' in concurrency handling if needed.
 // This supports using the package as a library by synchronizing multiple goroutines
-// pulling the same blob. If that happens, the first go routine will pull, and
-// others will wait for the first goroutine to finish.
-func (rc regClient) v2Blobs(layer types.Layer, toFile string) error {
+// pulling the same 	"imgpull/pkg/imgpull"
+func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
 	if f, err := os.Stat(toFile); err == nil && f.Size() == int64(layer.Size) {
 		// already exists on the file system
 		return nil
 	}
 	if !blobsync.ConcurrentBlobs {
-		return rc.v2BlobsInternal(layer, toFile)
+		return rc.V2BlobsInternal(layer, toFile)
 	}
 	so := blobsync.EnqueueGet(layer.Digest)
 	var err error
 	go func() {
 		if so.Result == blobsync.NotEnqueued {
 			defer blobsync.DoneGet(layer.Digest)
-			err = rc.v2BlobsInternal(layer, toFile)
+			err = rc.V2BlobsInternal(layer, toFile)
 		}
 	}()
 	waitResult := blobsync.Wait(so)
@@ -140,13 +146,13 @@ func (rc regClient) v2Blobs(layer types.Layer, toFile string) error {
 	return waitResult
 }
 
-// v2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
+// V2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
 // passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
-func (rc regClient) v2BlobsInternal(layer types.Layer, toFile string) error {
-	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.imgRef.serverUrl(), rc.imgRef.repository, layer.Digest, rc.nsQueryParm())
+func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
+	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, layer.Digest, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	rc.setAuthHdr(req)
-	resp, err := rc.client.Do(req)
+	resp, err := rc.Client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
@@ -177,28 +183,28 @@ func (rc regClient) v2BlobsInternal(layer types.Layer, toFile string) error {
 	return nil
 }
 
-// v2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
+// V2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
 // If you pass an empty string in 'sha', then the GET will use the image url that was used to initialize
 // the Puller. (Probably a tag.) If you provide a digest in 'sha', the digest will override the tag.
 //
 // Generally speaking: pull by tag returns an image list from the registry if one is available and pull
 // by digest (SHA) returns an image manifest. But this might not be true all the time.
-func (rc regClient) v2Manifests(sha string) (ManifestHolder, error) {
-	ref := rc.imgRef.ref
+func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
+	ref := rc.ImgRef.Ref
 	if sha != "" {
 		ref = sha
 	}
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.imgRef.serverUrl(), rc.imgRef.repository, ref, rc.nsQueryParm())
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, ref, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	rc.setAuthHdr(req)
-	resp, err := rc.client.Do(req)
+	resp, err := rc.Client.Do(req)
 	if err != nil {
-		return ManifestHolder{}, err
+		return ManifestGetResult{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ManifestHolder{}, fmt.Errorf("get manifests attempt failed. Status: %d", resp.StatusCode)
+		return ManifestGetResult{}, fmt.Errorf("get manifests attempt failed. Status: %d", resp.StatusCode)
 	}
 	if resp != nil {
 		defer resp.Body.Close()
@@ -206,7 +212,7 @@ func (rc regClient) v2Manifests(sha string) (ManifestHolder, error) {
 	mediaType := resp.Header.Get("Content-Type")
 	manifestBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestBytes))
 	if err != nil {
-		return ManifestHolder{}, err
+		return ManifestGetResult{}, err
 	}
 	manifestDigest := resp.Header.Get("Docker-Content-Digest")
 	computedDigest := digest.FromBytes(manifestBytes).Hex()
@@ -215,39 +221,42 @@ func (rc regClient) v2Manifests(sha string) (ManifestHolder, error) {
 	} else {
 		manifestDigest = util.DigestFrom(manifestDigest)
 		if computedDigest != manifestDigest {
-			return ManifestHolder{}, fmt.Errorf("digest mismatch for %q", ref)
+			return ManifestGetResult{}, fmt.Errorf("digest mismatch for %q", ref)
 		}
 	}
-	mh, err := newManifestHolder(mediaType, manifestBytes, manifestDigest, rc.makeUrl(sha))
-	return mh, err
+	return ManifestGetResult{
+		MediaType:      mediaType,
+		ManifestBytes:  manifestBytes,
+		ManifestDigest: manifestDigest,
+	}, nil
 }
 
-// v2ManifestsHead is like v2Manifests but does a HEAD request. The result is returned in a
+// V2ManifestsHead is like V2Manifests but does a HEAD request. The result is returned in a
 // smaller struct with only media type, digest, and size (of manifest).
-func (rc regClient) v2ManifestsHead() (ManifestDescriptor, error) {
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.imgRef.serverUrl(), rc.imgRef.repository, rc.imgRef.ref, rc.nsQueryParm())
+func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
+	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, rc.ImgRef.Ref, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodHead, url, nil)
 	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
 	rc.setAuthHdr(req)
-	resp, err := rc.client.Do(req)
+	resp, err := rc.Client.Do(req)
 	if err != nil {
-		return ManifestDescriptor{}, err
+		return types.ManifestDescriptor{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return ManifestDescriptor{}, fmt.Errorf("head manifests for %q failed with status %q", url, resp.StatusCode)
+		return types.ManifestDescriptor{}, fmt.Errorf("head manifests for %q failed with status %q", url, resp.StatusCode)
 	}
 	if resp != nil {
 		defer resp.Body.Close()
 	}
 	mediaType := resp.Header.Get("Content-Type")
 	if mediaType == "" {
-		return ManifestDescriptor{}, fmt.Errorf("head manifests for %q did not return content type", url)
+		return types.ManifestDescriptor{}, fmt.Errorf("head manifests for %q did not return content type", url)
 	}
 	digest := resp.Header.Get("Docker-Content-Digest")
 	if digest == "" {
-		return ManifestDescriptor{}, fmt.Errorf("head manifests for %q did not return digest", url)
+		return types.ManifestDescriptor{}, fmt.Errorf("head manifests for %q did not return digest", url)
 	}
-	return ManifestDescriptor{
+	return types.ManifestDescriptor{
 		MediaType: mediaType,
 		Digest:    digest,
 		Size:      int(resp.ContentLength),
@@ -256,9 +265,9 @@ func (rc regClient) v2ManifestsHead() (ManifestDescriptor, error) {
 
 // setAuthHdr sets an auth header (e.g. "Bearer", "Basic") on the passed request
 // if the receiver is configured with such a header.
-func (rc regClient) setAuthHdr(req *http.Request) {
-	if rc.authHdr != (authHeader{}) {
-		req.Header.Set(rc.authHdr.key, rc.authHdr.value)
+func (rc RegClient) setAuthHdr(req *http.Request) {
+	if rc.AuthHdr != (AuthHeader{}) {
+		req.Header.Set(rc.AuthHdr.Key, rc.AuthHdr.Value)
 	}
 }
 
@@ -266,33 +275,33 @@ func (rc regClient) setAuthHdr(req *http.Request) {
 // and if it is, returns the namespace as a query param in the form: '?ns=X' where 'X'
 // is the receiver's namespace. If no namespace is configured, then the function
 // returns the empty string.
-func (rc regClient) nsQueryParm() string {
-	if rc.namespace != "" {
-		return "?ns=" + rc.namespace
+func (rc RegClient) nsQueryParm() string {
+	if rc.Namespace != "" {
+		return "?ns=" + rc.Namespace
 	} else {
 		return ""
 	}
 }
 
-// makeUrl makes an image ref like docker.io/hello-world:latest. If the receiver
+// MakeUrl makes an image ref like docker.io/hello-world:latest. If the receiver
 // has a namespace, then the namespace is used for the registry instead of the
 // registry in the receiver. If the passed sha is not the empty string, then it is
 // used as a digest ref, otherwise the ref in the receiver (which could be a tag
 // or a digest is used.
-func (rc regClient) makeUrl(sha string) string {
-	regToUse := rc.imgRef.registry
-	if rc.namespace != "" {
-		regToUse = rc.namespace
+func (rc RegClient) MakeUrl(sha string) string {
+	regToUse := rc.ImgRef.Registry
+	if rc.Namespace != "" {
+		regToUse = rc.Namespace
 	}
 	var refToUse string
-	if strings.HasPrefix(rc.imgRef.ref, "sha256:") {
-		refToUse = "@" + rc.imgRef.ref
+	if strings.HasPrefix(rc.ImgRef.Ref, "sha256:") {
+		refToUse = "@" + rc.ImgRef.Ref
 	} else if sha != "" {
 		refToUse = "@sha256:" + util.DigestFrom(sha)
 	} else {
-		refToUse = ":" + rc.imgRef.ref
+		refToUse = ":" + rc.ImgRef.Ref
 	}
-	return fmt.Sprintf("%s/%s%s", regToUse, rc.imgRef.repository, refToUse)
+	return fmt.Sprintf("%s/%s%s", regToUse, rc.ImgRef.Repository, refToUse)
 }
 
 // getWwwAuthenticateHdrs gets all "www-authenticate" headers from

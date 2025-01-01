@@ -1,8 +1,9 @@
-package imgpull
+package methods
 
 import (
 	"fmt"
 	"imgpull/internal/blobsync"
+	"imgpull/internal/imgref"
 	"imgpull/internal/testhelpers"
 	"imgpull/mock"
 	"imgpull/pkg/imgpull/types"
@@ -10,7 +11,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,17 +23,11 @@ import (
 func TestV2(t *testing.T) {
 	server, url := mock.Server(mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{}))
 	defer server.Close()
-	pullOpts := PullerOpts{
-		Url:      fmt.Sprintf("%s/hello-world:latest", url),
-		Scheme:   "http",
-		OStype:   runtime.GOOS,
-		ArchType: runtime.GOARCH,
-	}
-	p, err := NewPullerWith(pullOpts)
+	rc, err := newRegClient("hello-world:latest", url)
 	if err != nil {
 		t.Fail()
 	}
-	status, auth, err := p.regCliFrom().v2()
+	status, auth, err := rc.V2()
 	if err != nil {
 		t.Fail()
 	}
@@ -64,7 +58,7 @@ func TestV2BlobsExists(t *testing.T) {
 	// if the logic that immediately returns if the blob file
 	// already exists is executed, then the empty regClient struct
 	// is ingored.
-	if (regClient{}).v2Blobs(layer, blobFile) != nil {
+	if (RegClient{}).V2Blobs(layer, blobFile) != nil {
 		t.Fail()
 	}
 }
@@ -72,30 +66,23 @@ func TestV2BlobsExists(t *testing.T) {
 // Tests getting a blob
 func TestV2BlobsSimple(t *testing.T) {
 	server, url := mock.Server(mock.NewMockParams(mock.NONE, mock.NOTLS, mock.CertSetup{}))
-	defer server.Close()
-	pullOpts := PullerOpts{
-		Url:      fmt.Sprintf("%s/hello-world:latest", url),
-		Scheme:   "http",
-		OStype:   runtime.GOOS,
-		ArchType: runtime.GOARCH,
-	}
-	p, err := NewPullerWith(pullOpts)
+	rc, err := newRegClient("hello-world:latest", url)
 	if err != nil {
 		t.Fail()
 	}
+	defer server.Close()
 	d, _ := os.MkdirTemp("", "")
 	defer os.RemoveAll(d)
 
 	digest := "sha256:d2c94e258dcb3c5ac2798d32e1249e42ef01cba4841c2234249495f87264ac5a"
 	blobFile := filepath.Join(d, digest)
 
-	rc := p.regCliFrom()
 	layer := types.Layer{
 		MediaType: types.V2dockerLayerGzipMt,
 		Digest:    digest,
 		Size:      581, // mock/testfiles/d2c9.json
 	}
-	if rc.v2Blobs(layer, blobFile) != nil {
+	if rc.V2Blobs(layer, blobFile) != nil {
 		t.Fail()
 	}
 }
@@ -123,13 +110,6 @@ func TestV2BlobsConcur(t *testing.T) {
 	}))
 	defer server.Close()
 
-	pullOpts := PullerOpts{
-		Url:      strings.ReplaceAll(fmt.Sprintf("%s/hello-world:latest", server.URL), "http://", ""),
-		Scheme:   "http",
-		OStype:   "linux",
-		ArchType: "amd64",
-	}
-
 	d, _ := os.MkdirTemp("", "")
 	defer os.RemoveAll(d)
 
@@ -141,17 +121,16 @@ func TestV2BlobsConcur(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			p, err := NewPullerWith(pullOpts)
-			if err != nil {
-				t.Fail()
-			}
-			rc := p.regCliFrom()
 			layer := types.Layer{
 				MediaType: types.V2dockerLayerGzipMt,
 				Digest:    "sha256:" + digest,
 				Size:      len(blob),
 			}
-			if rc.v2Blobs(layer, filepath.Join(d, digest)) != nil {
+			rc, err := newRegClient("hello-world:latest", strings.ReplaceAll(server.URL, "http://", ""))
+			if err != nil {
+				t.Fail()
+			}
+			if rc.V2Blobs(layer, filepath.Join(d, digest)) != nil {
 				fmt.Println(err)
 				t.Fail()
 			}
@@ -162,4 +141,17 @@ func TestV2BlobsConcur(t *testing.T) {
 	if int(httpMethodCnt.Load()) != 1 {
 		t.Fail()
 	}
+}
+
+func newRegClient(image string, url string) (RegClient, error) {
+	ir, err := imgref.NewImageRef(fmt.Sprintf("%s/%s", url, image), "http")
+	if err != nil {
+		return RegClient{}, err
+	}
+	return RegClient{
+		ImgRef:    ir,
+		Client:    &http.Client{},
+		Namespace: "",
+		AuthHdr:   AuthHeader{},
+	}, nil
 }

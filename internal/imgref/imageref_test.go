@@ -1,4 +1,4 @@
-package imgpull
+package imgref
 
 import (
 	"fmt"
@@ -32,7 +32,7 @@ func TestPRs(t *testing.T) {
 		{"foo.io/bar/baz/frobozz:v1.2.3", false, ""},
 	}
 	for _, url := range urls {
-		pr, err := newImageRef(url.url, "https")
+		pr, err := NewImageRef(url.url, "https")
 		if url.shouldParse && err != nil {
 			t.Fail()
 		} else if !url.shouldParse && err == nil {

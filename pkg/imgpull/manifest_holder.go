@@ -3,6 +3,7 @@ package imgpull
 import (
 	"encoding/json"
 	"fmt"
+	"imgpull/internal/imgref"
 	"imgpull/internal/tar"
 	"imgpull/internal/util"
 	"imgpull/pkg/imgpull/types"
@@ -209,20 +210,20 @@ func (mh *ManifestHolder) getImageDigestFor(os string, arch string) (string, err
 // specifies where the blob files can be found. The function doesn't create the tarball
 // but the struct that is returned has everything needed for the caller to create the
 // tarball.
-func (mh *ManifestHolder) newImageTarball(iref imageRef, namespace string, sourceDir string) (tar.ImageTarball, error) {
+func (mh *ManifestHolder) newImageTarball(iref imgref.ImageRef, namespace string, sourceDir string) (tar.ImageTarball, error) {
 	dtm := tar.ImageTarball{
 		SourceDir: sourceDir,
 	}
 	switch mh.Type {
 	case V2dockerManifest:
 		dtm.ConfigDigest = util.DigestFrom(mh.V2dockerManifest.Config.Digest)
-		dtm.ImageUrl = iref.imageUrlWithNs(namespace)
+		dtm.ImageUrl = iref.ImageUrlWithNs(namespace)
 		for _, layer := range mh.V2dockerManifest.Layers {
 			dtm.Layers = append(dtm.Layers, types.NewLayer(layer.MediaType, layer.Digest, layer.Size))
 		}
 	case V1ociManifest:
 		dtm.ConfigDigest = util.DigestFrom(mh.V1ociManifest.Config.Digest)
-		dtm.ImageUrl = iref.imageUrlWithNs(namespace)
+		dtm.ImageUrl = iref.ImageUrlWithNs(namespace)
 		for _, layer := range mh.V1ociManifest.Layers {
 			dtm.Layers = append(dtm.Layers, types.NewLayer(layer.MediaType, layer.Digest, layer.Size))
 		}

@@ -14,6 +14,15 @@ const (
 	V1ociLayerZstdMt       = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
+// ManifestDescriptor has the information returned from a v2 manifests
+// HEAD request to an OCI distribution server. A HEAD request returns a subset
+// if manifest info.
+type ManifestDescriptor struct {
+	MediaType string `json:"mediaType,omitempty"`
+	Digest    string `json:"digest,omitempty"`
+	Size      int    `json:"size"`
+}
+
 // Layer has the parts of the 'Descriptor' struct that minimally describe a
 // layer. Since the Descriptor is a different type for Docker vs OCI with overlap, the other
 // option was to embed the original struct here and then have getters based on
@@ -34,4 +43,21 @@ func NewLayer(mediaType string, digest string, size int64) Layer {
 		Digest:    digest,
 		Size:      int(size),
 	}
+}
+
+// bearerAuth has the two parts of a bearer auth header that we need, in
+// order to request a bearer token from an OCI distribution server.
+type BearerAuth struct {
+	Realm   string
+	Service string
+}
+
+// bearerToken holds the bearer token value.
+type BearerToken struct {
+	Token string
+}
+
+// basicAuth holds the encoded username and password.
+type BasicAuth struct {
+	Encoded string
 }

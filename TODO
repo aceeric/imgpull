@@ -1,4 +1,17 @@
 
 - review all errors
 - restructure with 'internal' package
+    stays in main package
+      YES
+      - dopull.go
+      - manifest_holder.go
+      - pkg.go
+      - puller.go
+      - pulleropts.go
+      NO
+      - blobsync.go
+      - imageref.go
+      - methods.go
+      - tar.go
+      - helpers.go > utils.go
 - examples (of how to use as a library)
