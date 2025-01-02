@@ -39,33 +39,33 @@ const (
 	imageOpt optName = "image"
 	// positional param two - the tarball to save the image to
 	destOpt optName = "dest"
-	// --os linux
+	// e.g. --os linux
 	osOpt optName = "os"
-	// --arch amd64
+	// e.g. --arch amd64
 	archOpt optName = "arch"
-	// --ns docker.op
+	// e.g. --ns docker.io
 	namespaceOpt optName = "namespace"
-	// --user jqpubli
+	// e.g. --user jqpubli
 	usernameOpt optName = "user"
-	// --password mypassword
+	// e.g. --password mypassword
 	passwordOpt optName = "password"
-	// --scheme [http | https]
+	// e.g. --scheme [http | https]
 	schemeOpt optName = "scheme"
-	// --cert /path/to/client-cert.pem
+	// e.g. --cert /path/to/client-cert.pem
 	certOpt optName = "cert"
-	// --key /path/to/client-key.pem
+	// e.g. --key /path/to/client-key.pem
 	keyOpt optName = "key"
-	// --cacert /path/to/ca.pem
+	// e.g. --cacert /path/to/ca.pem
 	caOpt optName = "cacert"
-	// --insecure
+	// e.g. --insecure
 	insecureOpt optName = "insecure"
-	// --manifest [list | image]
+	// e.g. --manifest [list | image]
 	manifestOpt optName = "manifest"
-	// --version
+	// e.g. --version
 	versionOpt optName = "version"
-	// --help
+	// e.g. --help
 	helpOpt optName = "help"
-	// --parsed
+	// e.g. --parsed
 	parsedOpt optName = "parsed"
 )
 

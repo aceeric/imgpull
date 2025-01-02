@@ -52,7 +52,7 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, "")
+	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(""))
 	if err != nil {
 		return ManifestHolder{}, err
 	}
@@ -68,7 +68,7 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 		if err != nil {
 			return ManifestHolder{}, err
 		}
-		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, digest)
+		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
 		if err != nil {
 			return ManifestHolder{}, err
 		}
@@ -118,11 +118,12 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
-	mr, err := p.regCliFrom().V2Manifests("")
+	rc := p.regCliFrom()
+	mr, err := rc.V2Manifests("")
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, "")
+	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(""))
 }
 
 // pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
@@ -142,7 +143,7 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
-	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, "")
+	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(""))
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
@@ -155,7 +156,7 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
-		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, digest)
+		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
