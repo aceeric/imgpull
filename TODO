@@ -1,7 +1,6 @@
 
 - review all errors
-- pkg.go in all packages
-- mh.ImageUrl not being set
+- image ref / url consolidation / normalization
 - internal package unit tests show low coverage because not counted by imgpull test invocations
     package                       coverage
     ----------------------------  ----------------
