@@ -252,18 +252,18 @@ func (p *Puller) authenticate(auth []string) error {
 // that the auth struct in the receiver is initialized by virtue of that call. The auth
 // struct is copied into the returned regClient struct which is used to set auth headers.
 func (p *Puller) regCliFrom() methods.RegClient {
-	c := methods.RegClient{
+	rc := methods.RegClient{
 		ImgRef:    p.ImgRef,
 		Client:    p.Client,
 		Namespace: p.Opts.Namespace,
 	}
 	if k, v := p.authHdr(); k != "" {
-		c.AuthHdr = methods.AuthHeader{
+		rc.AuthHdr = methods.AuthHeader{
 			Key:   k,
 			Value: v,
 		}
 	}
-	return c
+	return rc
 }
 
 // parseBearer parses the passed auth header which the caller should ensure is a bearer
@@ -271,7 +271,7 @@ func (p *Puller) regCliFrom() methods.RegClient {
 //
 //	Bearer realm="https://auth.docker.io/token",service="registry.docker.io"
 //
-// The function returns the parsed result in the 'BearerAuth' struct.
+// The function returns the parsed result in a 'BearerAuth' struct.
 func parseBearer(authHdr string) types.BearerAuth {
 	ba := types.BearerAuth{}
 	parts := []string{"realm", "service"}

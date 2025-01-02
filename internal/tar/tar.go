@@ -170,7 +170,7 @@ func addString(tw *tar.Writer, content, name string) error {
 
 // extensionForLayer returns '.tar', '.tar.gz', or '.tar.zstd' based on the
 // passed media type.
-func extensionForLayer(mediaType string) (string, error) {
+func extensionForLayer(mediaType types.MediaType) (string, error) {
 	switch mediaType {
 	case types.V1ociLayerMt, types.V2dockerLayerMt:
 		return ".tar", nil

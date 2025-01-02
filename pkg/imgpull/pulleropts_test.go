@@ -12,13 +12,11 @@ func TestPullerOpts(t *testing.T) {
 	}
 }
 
-type OptsTest struct {
-	opts  PullerOpts
-	valid bool
-}
-
 func TestValidate(t *testing.T) {
-	for _, po := range []OptsTest{
+	for _, po := range []struct {
+		opts  PullerOpts
+		valid bool
+	}{
 		{PullerOpts{}, false},
 		{PullerOpts{Url: "foo"}, false},
 		{opts: PullerOpts{Url: "foo", Scheme: "https"}, valid: false},

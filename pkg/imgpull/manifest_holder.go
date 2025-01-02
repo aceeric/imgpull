@@ -84,7 +84,7 @@ func (mh *ManifestHolder) ToString() (string, error) {
 // newManifestHolder initializes and returns a ManifestHolder struct for the passed
 // manifest bytes. The manifest bytes will be deserialized into one of the four manifest
 // variables based on the 'mediaType' arg.
-func newManifestHolder(mediaType string, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
+func newManifestHolder(mediaType types.MediaType, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
 	mt := toManifestType(mediaType)
 	if mt == Undefined {
 		return ManifestHolder{}, fmt.Errorf("unknown manifest type %q", mediaType)
@@ -104,7 +104,7 @@ func newManifestHolder(mediaType string, bytes []byte, digest string, imageUrl s
 // toManifestType returns the 'ManifestType' corrresponding to the passed
 // 'mediaType'. If the media type does not match one of the supported types then
 // the function returns 'Undefined'.
-func toManifestType(mediaType string) ManifestType {
+func toManifestType(mediaType types.MediaType) ManifestType {
 	switch mediaType {
 	case types.V2dockerManifestListMt:
 		return V2dockerManifestList
@@ -154,14 +154,14 @@ func (mh *ManifestHolder) layers() []types.Layer {
 		for _, l := range mh.V2dockerManifest.Layers {
 			nl := types.Layer{
 				Digest:    l.Digest,
-				MediaType: l.MediaType,
+				MediaType: types.MediaType(l.MediaType),
 				Size:      int(l.Size),
 			}
 			layers = append(layers, nl)
 		}
 		nl := types.Layer{
 			Digest:    mh.V2dockerManifest.Config.Digest,
-			MediaType: mh.V2dockerManifest.Config.MediaType,
+			MediaType: types.MediaType(mh.V2dockerManifest.Config.MediaType),
 			Size:      int(mh.V2dockerManifest.Config.Size),
 		}
 		layers = append(layers, nl)
@@ -169,14 +169,14 @@ func (mh *ManifestHolder) layers() []types.Layer {
 		for _, l := range mh.V1ociManifest.Layers {
 			nl := types.Layer{
 				Digest:    l.Digest,
-				MediaType: l.MediaType,
+				MediaType: types.MediaType(l.MediaType),
 				Size:      int(l.Size),
 			}
 			layers = append(layers, nl)
 		}
 		nl := types.Layer{
 			Digest:    mh.V1ociManifest.Config.Digest,
-			MediaType: mh.V1ociManifest.Config.MediaType,
+			MediaType: types.MediaType(mh.V1ociManifest.Config.MediaType),
 			Size:      int(mh.V1ociManifest.Config.Size),
 		}
 		layers = append(layers, nl)
@@ -219,13 +219,13 @@ func (mh *ManifestHolder) newImageTarball(iref imgref.ImageRef, namespace string
 		dtm.ConfigDigest = util.DigestFrom(mh.V2dockerManifest.Config.Digest)
 		dtm.ImageUrl = iref.ImageUrlWithNs(namespace)
 		for _, layer := range mh.V2dockerManifest.Layers {
-			dtm.Layers = append(dtm.Layers, types.NewLayer(layer.MediaType, layer.Digest, layer.Size))
+			dtm.Layers = append(dtm.Layers, types.NewLayer(types.MediaType(layer.MediaType), layer.Digest, layer.Size))
 		}
 	case V1ociManifest:
 		dtm.ConfigDigest = util.DigestFrom(mh.V1ociManifest.Config.Digest)
 		dtm.ImageUrl = iref.ImageUrlWithNs(namespace)
 		for _, layer := range mh.V1ociManifest.Layers {
-			dtm.Layers = append(dtm.Layers, types.NewLayer(layer.MediaType, layer.Digest, layer.Size))
+			dtm.Layers = append(dtm.Layers, types.NewLayer(types.MediaType(layer.MediaType), layer.Digest, layer.Size))
 		}
 	default:
 		return dtm, fmt.Errorf("can't create docker tar manifest from %q kind of manifest", manifestTypeToString[mh.Type])

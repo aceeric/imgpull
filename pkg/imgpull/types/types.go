@@ -1,26 +1,28 @@
 package types
 
+type MediaType string
+
 // media types
 const (
-	V2dockerManifestListMt = "application/vnd.docker.distribution.manifest.list.v2+json"
-	V2dockerManifestMt     = "application/vnd.docker.distribution.manifest.v2+json"
-	V1ociIndexMt           = "application/vnd.oci.image.index.v1+json"
-	V1ociManifestMt        = "application/vnd.oci.image.manifest.v1+json"
-	V2dockerLayerMt        = "application/vnd.docker.image.rootfs.diff.tar"
-	V2dockerLayerGzipMt    = "application/vnd.docker.image.rootfs.diff.tar.gzip"
-	V2dockerLayerZstdMt    = "application/vnd.docker.image.rootfs.diff.tar.zstd"
-	V1ociLayerMt           = "application/vnd.oci.image.layer.v1.tar"
-	V1ociLayerGzipMt       = "application/vnd.oci.image.layer.v1.tar+gzip"
-	V1ociLayerZstdMt       = "application/vnd.oci.image.layer.v1.tar+zstd"
+	V2dockerManifestListMt MediaType = "application/vnd.docker.distribution.manifest.list.v2+json"
+	V2dockerManifestMt     MediaType = "application/vnd.docker.distribution.manifest.v2+json"
+	V1ociIndexMt           MediaType = "application/vnd.oci.image.index.v1+json"
+	V1ociManifestMt        MediaType = "application/vnd.oci.image.manifest.v1+json"
+	V2dockerLayerMt        MediaType = "application/vnd.docker.image.rootfs.diff.tar"
+	V2dockerLayerGzipMt    MediaType = "application/vnd.docker.image.rootfs.diff.tar.gzip"
+	V2dockerLayerZstdMt    MediaType = "application/vnd.docker.image.rootfs.diff.tar.zstd"
+	V1ociLayerMt           MediaType = "application/vnd.oci.image.layer.v1.tar"
+	V1ociLayerGzipMt       MediaType = "application/vnd.oci.image.layer.v1.tar+gzip"
+	V1ociLayerZstdMt       MediaType = "application/vnd.oci.image.layer.v1.tar+zstd"
 )
 
 // ManifestDescriptor has the information returned from a v2 manifests
 // HEAD request to an OCI distribution server. A HEAD request returns a subset
 // if manifest info.
 type ManifestDescriptor struct {
-	MediaType string `json:"mediaType,omitempty"`
-	Digest    string `json:"digest,omitempty"`
-	Size      int    `json:"size"`
+	MediaType MediaType `json:"mediaType,omitempty"`
+	Digest    string    `json:"digest,omitempty"`
+	Size      int       `json:"size"`
 }
 
 // Layer has the parts of the 'Descriptor' struct that minimally describe a
@@ -31,13 +33,13 @@ type ManifestDescriptor struct {
 // struct but since it really is derived from a layer, it is represented as
 // a separate struct.
 type Layer struct {
-	MediaType string `json:"mediaType"`
-	Digest    string `json:"digest"`
-	Size      int    `json:"size"`
+	MediaType MediaType `json:"mediaType"`
+	Digest    string    `json:"digest"`
+	Size      int       `json:"size"`
 }
 
 // NewLayer returns a new 'Layer' struct from the passed args
-func NewLayer(mediaType string, digest string, size int64) Layer {
+func NewLayer(mediaType MediaType, digest string, size int64) Layer {
 	return Layer{
 		MediaType: mediaType,
 		Digest:    digest,

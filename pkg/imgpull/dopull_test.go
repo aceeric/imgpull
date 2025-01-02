@@ -21,15 +21,13 @@ import (
 	"github.com/opencontainers/go-digest"
 )
 
-type authHdrTest struct {
-	hdr     string
-	realm   string
-	service string
-}
-
 // test auth header parsing
 func TestAuthParse(t *testing.T) {
-	authHdrTests := []authHdrTest{
+	authHdrTests := []struct {
+		hdr     string
+		realm   string
+		service string
+	}{
 		{
 			hdr:     `Bearer realm="https://quay.io/v2/auth",service="quay.io"`,
 			realm:   "https://quay.io/v2/auth",

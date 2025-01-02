@@ -41,19 +41,30 @@ type RegClient struct {
 	AuthHdr AuthHeader
 }
 
+// ManifestGetResult is returned by the 'V2Manifests' function in this
+// package. The manifest is contained within the 'ManifestBytes' struct
+// member.
 type ManifestGetResult struct {
-	MediaType      string
+	MediaType      types.MediaType
 	ManifestBytes  []byte
 	ManifestDigest string
 }
 
 // allManifestTypes lists all of the manifest types that this package
 // will operate on.
-var allManifestTypes []string = []string{
+var allManifestTypes []types.MediaType = []types.MediaType{
 	types.V2dockerManifestListMt,
 	types.V2dockerManifestMt,
 	types.V1ociIndexMt,
 	types.V1ociManifestMt,
+}
+
+func allManifestTypesStr() string {
+	toReturn := string(allManifestTypes[0])
+	for i := 1; i < len(allManifestTypes); i++ {
+		toReturn = fmt.Sprintf("%s,%s", toReturn, allManifestTypes[i])
+	}
+	return toReturn
 }
 
 // V2 calls the 'v2' endpoint which typically either returns OK or unauthorized. It is the first
@@ -197,7 +208,7 @@ func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
 	}
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, ref, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
+	req.Header.Set("Accept", allManifestTypesStr())
 	rc.setAuthHdr(req)
 	resp, err := rc.Client.Do(req)
 	if err != nil {
@@ -225,7 +236,7 @@ func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
 		}
 	}
 	return ManifestGetResult{
-		MediaType:      mediaType,
+		MediaType:      types.MediaType(mediaType),
 		ManifestBytes:  manifestBytes,
 		ManifestDigest: manifestDigest,
 	}, nil
@@ -236,7 +247,7 @@ func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
 func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
 	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, rc.ImgRef.Ref, rc.nsQueryParm())
 	req, _ := http.NewRequest(http.MethodHead, url, nil)
-	req.Header.Set("Accept", strings.Join(allManifestTypes, ","))
+	req.Header.Set("Accept", allManifestTypesStr())
 	rc.setAuthHdr(req)
 	resp, err := rc.Client.Do(req)
 	if err != nil {
@@ -257,7 +268,7 @@ func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
 		return types.ManifestDescriptor{}, fmt.Errorf("head manifests for %q did not return digest", url)
 	}
 	return types.ManifestDescriptor{
-		MediaType: mediaType,
+		MediaType: types.MediaType(mediaType),
 		Digest:    digest,
 		Size:      int(resp.ContentLength),
 	}, nil

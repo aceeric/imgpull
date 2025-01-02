@@ -31,7 +31,7 @@ type PullerOpts struct {
 	// CaCert is the path on the file system to a client CA if the host truststore cannot verify the
 	// server cert.
 	CaCert string
-	// Insecure skips server cert validation for the upstream registry (https-only)
+	// Insecure skips server cert validation for the upstream registry (https-only.)
 	Insecure bool
 	// Namespace supports pull-through and mirroring, i.e. pull 'localhost:5000/hello-world:latest'
 	// with Namespace 'docker.io' to pull from localhost if localhost is a mirror
