@@ -39,10 +39,7 @@ func (p *Puller) PullTar(dest string) error {
 }
 
 // PullManifest pulls an image manifest or an image list manifest based on the value
-// of the 'mpt' arg. The intended use case if to populate the Puller with a tag-type
-// reference. Then, requesting an image manifest will first get a manifest list if
-// available, and then select the proper image manifest based on puller OS/arch
-// configuration.
+// of the 'mpt' arg.
 func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
