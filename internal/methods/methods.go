@@ -59,6 +59,8 @@ var allManifestTypes []types.MediaType = []types.MediaType{
 	types.V1ociManifestMt,
 }
 
+// allManifestTypesStr concats all the manifest types supported to be pulled
+// into a comma-separated string.
 func allManifestTypesStr() string {
 	toReturn := string(allManifestTypes[0])
 	for i := 1; i < len(allManifestTypes); i++ {

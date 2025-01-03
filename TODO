@@ -1,14 +1,5 @@
-
+TODO
+----
 - review all errors
 - image ref / url consolidation / normalization
-- internal package unit tests show low coverage because not counted by imgpull test invocations
-    package                       coverage
-    ----------------------------  ----------------
-    imgpull/pkg/imgpull            73.1%
-    imgpull/internal/blobsync      96.0%
-    imgpull/internal/testhelpers    0.0%
-    imgpull/internal/imgref        92.3%
-    imgpull/internal/methods       34.8%
-    imgpull/internal/tar           74.3%
-    imgpull/internal/util         100.0%
 - examples (of how to use as a library)

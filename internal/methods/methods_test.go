@@ -143,6 +143,195 @@ func TestV2BlobsConcur(t *testing.T) {
 	}
 }
 
+// Test namespace query param for pull-through / mirror support
+func TestNs(t *testing.T) {
+	rc, err := newRegClient("hello-world:latest", "")
+	if err != nil {
+		t.Fail()
+	}
+	rc.Namespace = "frobozz.io"
+	p := rc.nsQueryParm()
+	if p != "?ns=frobozz.io" {
+		t.Fail()
+	}
+}
+
+// Test the value used for setting the Accept header
+func TestAllMfstTypes(t *testing.T) {
+	s := allManifestTypesStr()
+	cnt := strings.Count(s, ",")
+	if cnt != len(allManifestTypes)-1 {
+		t.Fail()
+	}
+}
+
+// Test make url with permutations of tag, digest, namespace y/n, sha override y/n
+func TestMakeurl(t *testing.T) {
+	refs := []string{
+		"foo:v1.2.3",
+		"foo@sha256:123",
+	}
+	testDigest := "4639e50633756e99edc56b04f814a887c0eb958004c87a95f323558054cc7ef3"
+	ns := []string{"", "flathead.com"}
+	sha := []string{"", testDigest}
+	expUrls := []string{
+		"frobozz.registry.io/foo:v1.2.3",
+		"frobozz.registry.io/foo@sha256:" + testDigest,
+		"flathead.com/foo:v1.2.3",
+		"flathead.com/foo@sha256:" + testDigest,
+		"frobozz.registry.io/foo@sha256:123",
+		"frobozz.registry.io/foo@sha256:123",
+		"flathead.com/foo@sha256:123",
+		"flathead.com/foo@sha256:123",
+	}
+	urlIdx := 0
+	for i := 0; i < len(refs); i++ {
+		for j := 0; j < 2; j++ {
+			for c := 0; c < 2; c++ {
+				rc, err := newRegClient(refs[i], "frobozz.registry.io")
+				if err != nil {
+					t.Fail()
+				}
+				rc.Namespace = ns[j]
+				url := rc.MakeUrl(sha[c])
+				if url != expUrls[urlIdx] {
+					t.Fail()
+				}
+				urlIdx++
+			}
+		}
+	}
+}
+
+// Test setting auth header in request
+func TestSetAuthHdr(t *testing.T) {
+	rc, err := newRegClient("hello-world:latest", "docker.io")
+	if err != nil {
+		t.Fail()
+	}
+	rc.AuthHdr = AuthHeader{
+		Key:   "foobar",
+		Value: "frobozz",
+	}
+	r := &http.Request{}
+	r.Header = make(map[string][]string)
+	rc.setAuthHdr(r)
+	if r.Header.Get("foobar") != "frobozz" {
+		t.Fail()
+	}
+}
+
+// Test getting auth header from response
+func TestGetAuthHdr(t *testing.T) {
+	image := "hello-world:latest"
+	mp := mock.NewMockParams(mock.BASIC, mock.NOTLS, mock.CertSetup{})
+	server, url := mock.Server(mp)
+	defer server.Close()
+	rc, err := newRegClient(image, url)
+	if err != nil {
+		t.Fail()
+	}
+	imgUrl := fmt.Sprintf("http://%s/v2/", url)
+	resp, err := rc.Client.Head(imgUrl)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		t.Fail()
+	}
+	expAuth := fmt.Sprintf(`Basic realm="%s"`, url)
+	actualAuth := getWwwAuthenticateHdrs(resp)
+	if len(actualAuth) != 1 && expAuth != actualAuth[0] {
+		t.Fail()
+	}
+}
+
+// test getting a bearer token
+func TestV2Bearer(t *testing.T) {
+	image := "hello-world:latest"
+	mp := mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{})
+	server, url := mock.Server(mp)
+	defer server.Close()
+	rc, err := newRegClient(image, url)
+	if err != nil {
+		t.Fail()
+	}
+	ba := types.BearerAuth{
+		Realm:   fmt.Sprintf("http://%s/v2/auth", url),
+		Service: url,
+	}
+	token, err := rc.V2Auth(ba)
+	if err != nil {
+		t.Fail()
+	}
+	if token.Token != "FROBOZZ" {
+		t.Fail()
+	}
+}
+
+// TODO: the mock distribution server doesn't do basic auth
+func TestV2Basic(t *testing.T) {
+}
+
+// test getting image list and image manifests
+func TestV2Manifests(t *testing.T) {
+	image := "hello-world:latest"
+	mp := mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{})
+	server, url := mock.Server(mp)
+	defer server.Close()
+	rc, err := newRegClient(image, url)
+	if err != nil {
+		t.Fail()
+	}
+	mr, err := rc.V2Manifests("")
+	if err != nil {
+		t.Fail()
+	}
+	if mr.MediaType != types.V1ociIndexMt {
+		t.Fail()
+	}
+	mr, err = rc.V2Manifests("sha256:e2fc4e5012d16e7fe466f5291c476431beaa1f9b90a5c2125b493ed28e2aba57")
+	if err != nil {
+		t.Fail()
+	}
+	if mr.MediaType != types.V1ociManifestMt {
+		t.Fail()
+	}
+}
+
+type headtest struct {
+	ref string
+	mt  types.MediaType
+}
+
+// test manifest head for image list manifest and image manifest
+func TestV2ManifestHead(t *testing.T) {
+	tests := []headtest{
+		{ref: ":latest", mt: types.V1ociIndexMt},
+		{ref: "@sha256:e2fc4e5012d16e7fe466f5291c476431beaa1f9b90a5c2125b493ed28e2aba57", mt: types.V1ociManifestMt},
+	}
+	for _, tst := range tests {
+		image := fmt.Sprintf("hello-world%s", tst.ref)
+		func() {
+			mp := mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{})
+			server, url := mock.Server(mp)
+			defer server.Close()
+			rc, err := newRegClient(image, url)
+			if err != nil {
+				t.Fail()
+			}
+			md, err := rc.V2ManifestsHead()
+			if err != nil {
+				t.Fail()
+			}
+			if md.MediaType != tst.mt {
+				t.Fail()
+			}
+		}()
+	}
+}
+
+// newRegClient is a helper function to initialize a 'RegClient' struct
 func newRegClient(image string, url string) (RegClient, error) {
 	ir, err := imgref.NewImageRef(fmt.Sprintf("%s/%s", url, image), "http")
 	if err != nil {
