@@ -12,10 +12,10 @@ func main() {
 		showUsageAndExit(nil)
 	} else if p, err := imgpull.NewPullerWith(pullerOptsFrom(cmdline)); err != nil {
 		fmt.Println(err)
-	} else if cmdline.getVal(manifestOpt) == "" {
-		pullTar(p, cmdline.getVal(destOpt))
-	} else {
+	} else if cmdline.getVal(manifestOpt) != "" {
 		showManifest(p, cmdline.getVal(manifestOpt))
+	} else {
+		pullTar(p, cmdline.getVal(destOpt))
 	}
 }
 
