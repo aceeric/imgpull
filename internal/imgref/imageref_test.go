@@ -32,13 +32,13 @@ func TestPRs(t *testing.T) {
 		{"foo.io/bar/baz/frobozz:v1.2.3", false, ""},
 	}
 	for _, url := range urls {
-		pr, err := NewImageRef(url.url, "https")
+		ir, err := NewImageRef(url.url, "https")
 		if url.shouldParse && err != nil {
 			t.Fail()
 		} else if !url.shouldParse && err == nil {
 			t.Fail()
-		} else if url.shouldParse && pr.ImageUrl() != url.parsedUrl {
-			imageUrl := pr.ImageUrl()
+		} else if url.shouldParse && ir.ImageUrl() != url.parsedUrl {
+			imageUrl := ir.ImageUrl()
 			fmt.Println(imageUrl)
 			t.Fail()
 		}

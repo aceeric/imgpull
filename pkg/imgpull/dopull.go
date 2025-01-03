@@ -65,11 +65,11 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 		if err != nil {
 			return ManifestHolder{}, err
 		}
-		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
+		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
 		if err != nil {
 			return ManifestHolder{}, err
 		}
-		return im, nil
+		return mh, nil
 	}
 	// if we get here, then the registry did not have a manifest list and so
 	// it provided an image manifest
@@ -153,11 +153,10 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
-		im, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
+		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
-		mh = im
 	}
 	for _, layer := range mh.layers() {
 		if rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))) != nil {
@@ -166,18 +165,6 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 	}
 	return mh.newImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
 }
-
-// possible future use
-// // GetManifestByDigest gets an image manifest by digest. Basically when building
-// // the API url it replaces the tag in the receiver with the passed digest. This
-// // function always returns an image manifest if one is available matching the
-// // passed digest.
-// func (p *Puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
-// 	if err := p.connect(); err != nil {
-// 		return ManifestHolder{}, err
-// 	}
-// 	return p.regCliFrom().V2Manifests(digest)
-// }
 
 // connect calls the 'v2' endpoint and looks for an auth header. If an auth
 // header is provided by the remote registry then this function will attempt
@@ -221,11 +208,11 @@ func (p *Puller) authenticate(auth []string) error {
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			ba := parseBearer(hdr)
-			t, err := rc.V2Auth(ba)
+			bt, err := rc.V2Auth(ba)
 			if err != nil {
 				return err
 			}
-			p.Token = t
+			p.Token = bt
 			return nil
 		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
 			delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
