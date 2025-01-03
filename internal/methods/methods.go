@@ -134,7 +134,7 @@ func (rc RegClient) V2Auth(ba types.BearerAuth) (types.BearerToken, error) {
 
 // V2Blobs wraps a call to 'v2BlobsInternal' in concurrency handling if needed.
 // This supports using the package as a library by synchronizing multiple goroutines
-// pulling the same 	"imgpull/pkg/imgpull"
+// pulling the same blob.
 func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
 	if f, err := os.Stat(toFile); err == nil && f.Size() == int64(layer.Size) {
 		// already exists on the file system
