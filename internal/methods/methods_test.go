@@ -2,11 +2,6 @@ package methods
 
 import (
 	"fmt"
-	"imgpull/internal/blobsync"
-	"imgpull/internal/imgref"
-	"imgpull/internal/testhelpers"
-	"imgpull/mock"
-	"imgpull/pkg/imgpull/types"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +12,12 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/aceeric/imgpull/internal/blobsync"
+	"github.com/aceeric/imgpull/internal/imgref"
+	"github.com/aceeric/imgpull/internal/testhelpers"
+	"github.com/aceeric/imgpull/mock"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
 // Tests bearer auth using the 'v2/' endpoint

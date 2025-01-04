@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"imgpull/pkg/imgpull"
 	"time"
+
+	"github.com/aceeric/imgpull/pkg/imgpull"
 )
 
 func main() {

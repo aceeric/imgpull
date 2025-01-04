@@ -4,8 +4,6 @@ import (
 	"archive/tar"
 	"encoding/json"
 	"fmt"
-	"imgpull/internal/util"
-	"imgpull/pkg/imgpull/types"
 	"io"
 	"os"
 	"os/user"
@@ -13,6 +11,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aceeric/imgpull/internal/util"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
 // DockerTarManifest is the structure of 'manifest.json' that you would find

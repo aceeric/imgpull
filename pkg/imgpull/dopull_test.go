@@ -5,11 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"imgpull/internal/tar"
-	"imgpull/internal/testhelpers"
-	"imgpull/internal/util"
-	"imgpull/mock"
-	"imgpull/pkg/imgpull/types"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +12,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/aceeric/imgpull/internal/tar"
+	"github.com/aceeric/imgpull/internal/testhelpers"
+	"github.com/aceeric/imgpull/internal/util"
+	"github.com/aceeric/imgpull/mock"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
 
 	"github.com/opencontainers/go-digest"
 )

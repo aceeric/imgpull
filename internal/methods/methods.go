@@ -3,14 +3,15 @@ package methods
 import (
 	"encoding/json"
 	"fmt"
-	"imgpull/internal/blobsync"
-	"imgpull/internal/imgref"
-	"imgpull/internal/util"
-	"imgpull/pkg/imgpull/types"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/aceeric/imgpull/internal/blobsync"
+	"github.com/aceeric/imgpull/internal/imgref"
+	"github.com/aceeric/imgpull/internal/util"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
 
 	"github.com/opencontainers/go-digest"
 )

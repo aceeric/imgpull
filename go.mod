@@ -1,4 +1,4 @@
-module imgpull
+module github.com/aceeric/imgpull
 
 go 1.23.3
 

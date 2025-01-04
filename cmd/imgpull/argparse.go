@@ -3,11 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"imgpull/pkg/imgpull"
 	"os"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/aceeric/imgpull/pkg/imgpull"
 )
 
 var (

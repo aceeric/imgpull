@@ -3,12 +3,13 @@ package imgpull
 import (
 	"encoding/json"
 	"fmt"
-	"imgpull/internal/imgref"
-	"imgpull/internal/tar"
-	"imgpull/internal/util"
-	"imgpull/pkg/imgpull/types"
-	"imgpull/pkg/imgpull/v1oci"
-	"imgpull/pkg/imgpull/v2docker"
+
+	"github.com/aceeric/imgpull/internal/imgref"
+	"github.com/aceeric/imgpull/internal/tar"
+	"github.com/aceeric/imgpull/internal/util"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
+	"github.com/aceeric/imgpull/pkg/imgpull/v1oci"
+	"github.com/aceeric/imgpull/pkg/imgpull/v2docker"
 )
 
 // ManifestType identifies the type of manifest the package can operate on.

@@ -4,11 +4,12 @@ import (
 	"archive/tar"
 	"bytes"
 	"fmt"
-	"imgpull/internal/testhelpers"
-	"imgpull/pkg/imgpull/types"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/aceeric/imgpull/internal/testhelpers"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
 // TestWriteFiles tests writing a physical file and a string "file"

@@ -3,16 +3,17 @@ package imgpull
 import (
 	"encoding/base64"
 	"fmt"
-	"imgpull/internal/methods"
-	"imgpull/internal/tar"
-	"imgpull/internal/util"
-	"imgpull/pkg/imgpull/types"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/aceeric/imgpull/internal/methods"
+	"github.com/aceeric/imgpull/internal/tar"
+	"github.com/aceeric/imgpull/internal/util"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
 // HTTP status codes that we will interpret as un-authorized
