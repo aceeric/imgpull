@@ -229,7 +229,7 @@ func (p *Puller) authenticate(auth []string) error {
 	return fmt.Errorf("unable to parse auth param: %v", auth)
 }
 
-// regCliFrom creates a 'regClient' from the receiver, consisting of a subset of receiver
+// regCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
 // fields needed to interact with the OCI Distribution Server V2 REST API. It supports
 // a looser coupling of the Puller from actually interacting with the distribution server.
 //
