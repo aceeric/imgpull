@@ -60,7 +60,7 @@ func SetConcurrentBlobs(timeoutSec int) {
 // is the first requester and therefore will have to actually pull the blob. If a
 // request was previously enqueued for the blob then 'isEnqueued' is returned meaning
 // the caller should simply wait for a signal on the channel in the returned syncObj
-// struct.
+// struct and let the first goroutine complete the pull and signal all waiters.
 func EnqueueGet(digest string) SyncObj {
 	so := SyncObj{
 		Ch:     make(chan bool),

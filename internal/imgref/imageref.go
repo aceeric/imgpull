@@ -3,6 +3,8 @@ package imgref
 import (
 	"fmt"
 	"strings"
+
+	"github.com/aceeric/imgpull/internal/util"
 )
 
 // imgPullType specifies whether pulling my tag or digest
@@ -13,11 +15,9 @@ const (
 	byTag imgPullType = iota
 	// Pull by digest
 	byDigest
-	sha256Prefix = "sha256:"
 )
 
-// ImageRef has the components of an image reference. Namespace is
-// intentionally not in here. This is purely the image reference.
+// ImageRef has the components of an image reference.
 type ImageRef struct {
 	// e.g.: foo.io/bar/baz:v1.2.3
 	raw string
@@ -37,23 +37,23 @@ type ImageRef struct {
 	Ref string
 	// 'http' or 'https'
 	scheme string
-}
-
-// ImageUrl returns the imageRef receiver URL-related content as an image reference suitable for
-// a 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'.
-func (ir *ImageRef) ImageUrl() string {
-	return ir.ImageUrlWithNs("")
+	// Namespace supports pull-through and mirroring, i.e. pull
+	// 'localhost:5000/hello-world:latest' with Namespace 'docker.io' to
+	// pull from localhost if localhost is a mirror or a pull-through
+	// registry.
+	Namespace string
 }
 
 // NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
 // or docker.io/library/hello-world@sha256:...) into an 'imageRef' struct. The url
 // MUST begin with a registry hostname (e.g. quay.io) - it is not (and cannot be)
 // inferred.
-func NewImageRef(url, scheme string) (ImageRef, error) {
+func NewImageRef(url, scheme, namespace string) (ImageRef, error) {
 	ir := ImageRef{
-		raw:      strings.ToLower(url),
-		pullType: byTag,
-		scheme:   strings.ToLower(scheme),
+		raw:       strings.ToLower(url),
+		pullType:  byTag,
+		scheme:    strings.ToLower(scheme),
+		Namespace: namespace,
 	}
 	parts := strings.Split(ir.raw, "/")
 	ir.Registry = parts[0]
@@ -100,37 +100,51 @@ func NewImageRef(url, scheme string) (ImageRef, error) {
 	return ir, nil
 }
 
-// ImageUrlWithNs returns the imageRef receiver URL-related content as an image reference suitable for
-// a 'docker pull' command. E.g.: 'quay.io/appzygy/ociregistry:1.5.0'.
-//
-// If the namespace arg is non-empty then the function replaces the registry configured in the
-// receiver. E.g.: if the receiver has a reference like 'localhost:8080/appzygy/ociregistry:1.5.0'
-// and namespace is passed with 'quay.io' then the function returns
-// 'quay.io/appzygy/ociregistry:1.5.0'.
-//
-// This supports pulling from pull-through registries. The intended purpose of this function
-// is to allow an image tarball to be pulled from a pull-through registry but have the
-// 'RepoTags' field in the tarball 'manifests.json' look like it was pulled from the registry
-// in the namespace rather than from a pull-through registry.
-func (ip *ImageRef) ImageUrlWithNs(namespace string) string {
-	separator := ":"
-	reg := ip.Registry
-	if namespace != "" {
-		reg = namespace
+// Url returns the image url in the receiver exactly as represented in
+// the receiver.
+func (ir *ImageRef) Url() string {
+	return ir.makeUrl("", false)
+}
+
+// UrlWithNs returns the image url in the receiver with registry component
+// replaced buy the namespace in the receiver if the namespace is non-empty.
+// E.g. if the image url used to actually pull an image is
+// 'localhost:8080/jetstack/cert-manager-controller:v1.16.2' and the namespace
+// in the receiver is 'quay.io' then the function returns:
+// quay.io/jetstack/cert-manager-controller:v1.16.2"
+func (ir *ImageRef) UrlWithNs() string {
+	return ir.makeUrl("", true)
+}
+
+// UrlWithDigest returns the image url in the receiver allowing to override
+// the image reference (i.e. tag) in the receiver with the passed digest.
+func (ir *ImageRef) UrlWithDigest(digest string) string {
+	return ir.makeUrl(digest, false)
+}
+
+// makeUrl does the actual work for 'ImageUrl', 'UrlWithNs', and
+// 'UrlWithDigest'
+func (ir *ImageRef) makeUrl(sha string, withNs bool) string {
+	regToUse := ir.Registry
+	if withNs && ir.Namespace != "" {
+		regToUse = ir.Namespace
 	}
-	if strings.HasPrefix(ip.Ref, sha256Prefix) {
-		separator = "@"
+	var refToUse string
+	if strings.HasPrefix(ir.Ref, "sha256:") {
+		refToUse = "@" + ir.Ref
+	} else if sha != "" {
+		refToUse = "@sha256:" + util.DigestFrom(sha)
+	} else {
+		refToUse = ":" + ir.Ref
 	}
-	if ip.org == "" {
-		return fmt.Sprintf("%s/%s%s%s", reg, ip.image, separator, ip.Ref)
-	}
-	return fmt.Sprintf("%s/%s/%s%s%s", reg, ip.org, ip.image, separator, ip.Ref)
+	return fmt.Sprintf("%s/%s%s", regToUse, ir.Repository, refToUse)
 }
 
 // ServerUrl handles the case where an image is pulled from docker.io but the package
 // has to access the DockerHub API on host index.docker.io so the receiver would have
 // a 'Registry' value of docker.io and a 'Server' value of index.docker.io. This function
-// is used whenver API calls are made - to return 'Server'.
-func (ip *ImageRef) ServerUrl() string {
-	return fmt.Sprintf("%s://%s", ip.scheme, ip.server)
+// is used whenver API calls are made - to return 'Server'. This seems to be unique to
+// DockerHub.
+func (ir *ImageRef) ServerUrl() string {
+	return fmt.Sprintf("%s://%s", ir.scheme, ir.server)
 }

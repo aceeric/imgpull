@@ -24,7 +24,7 @@ import (
 func TestV2(t *testing.T) {
 	server, url := mock.Server(mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{}))
 	defer server.Close()
-	rc, err := newRegClient("hello-world:latest", url)
+	rc, err := newRegClient("hello-world:latest", url, "")
 	if err != nil {
 		t.Fail()
 	}
@@ -64,10 +64,10 @@ func TestV2BlobsExists(t *testing.T) {
 	}
 }
 
-// Tests getting a blob
+// Tests getting a blob without concurrency.
 func TestV2BlobsSimple(t *testing.T) {
 	server, url := mock.Server(mock.NewMockParams(mock.NONE, mock.NOTLS, mock.CertSetup{}))
-	rc, err := newRegClient("hello-world:latest", url)
+	rc, err := newRegClient("hello-world:latest", url, "")
 	if err != nil {
 		t.Fail()
 	}
@@ -127,7 +127,7 @@ func TestV2BlobsConcur(t *testing.T) {
 				Digest:    "sha256:" + digest,
 				Size:      len(blob),
 			}
-			rc, err := newRegClient("hello-world:latest", strings.ReplaceAll(server.URL, "http://", ""))
+			rc, err := newRegClient("hello-world:latest", strings.ReplaceAll(server.URL, "http://", ""), "")
 			if err != nil {
 				t.Fail()
 			}
@@ -146,11 +146,10 @@ func TestV2BlobsConcur(t *testing.T) {
 
 // Test namespace query param for pull-through / mirror support
 func TestNs(t *testing.T) {
-	rc, err := newRegClient("hello-world:latest", "")
+	rc, err := newRegClient("hello-world:latest", "", "frobozz.io")
 	if err != nil {
 		t.Fail()
 	}
-	rc.Namespace = "frobozz.io"
 	p := rc.nsQueryParm()
 	if p != "?ns=frobozz.io" {
 		t.Fail()
@@ -166,47 +165,9 @@ func TestAllMfstTypes(t *testing.T) {
 	}
 }
 
-// Test make url with permutations of tag, digest, namespace y/n, sha override y/n
-func TestMakeurl(t *testing.T) {
-	refs := []string{
-		"foo:v1.2.3",
-		"foo@sha256:123",
-	}
-	testDigest := "4639e50633756e99edc56b04f814a887c0eb958004c87a95f323558054cc7ef3"
-	ns := []string{"", "flathead.com"}
-	sha := []string{"", testDigest}
-	expUrls := []string{
-		"frobozz.registry.io/foo:v1.2.3",
-		"frobozz.registry.io/foo@sha256:" + testDigest,
-		"flathead.com/foo:v1.2.3",
-		"flathead.com/foo@sha256:" + testDigest,
-		"frobozz.registry.io/foo@sha256:123",
-		"frobozz.registry.io/foo@sha256:123",
-		"flathead.com/foo@sha256:123",
-		"flathead.com/foo@sha256:123",
-	}
-	urlIdx := 0
-	for i := 0; i < len(refs); i++ {
-		for j := 0; j < 2; j++ {
-			for c := 0; c < 2; c++ {
-				rc, err := newRegClient(refs[i], "frobozz.registry.io")
-				if err != nil {
-					t.Fail()
-				}
-				rc.Namespace = ns[j]
-				url := rc.MakeUrl(sha[c])
-				if url != expUrls[urlIdx] {
-					t.Fail()
-				}
-				urlIdx++
-			}
-		}
-	}
-}
-
 // Test setting auth header in request
 func TestSetAuthHdr(t *testing.T) {
-	rc, err := newRegClient("hello-world:latest", "docker.io")
+	rc, err := newRegClient("hello-world:latest", "docker.io", "")
 	if err != nil {
 		t.Fail()
 	}
@@ -228,7 +189,7 @@ func TestGetAuthHdr(t *testing.T) {
 	mp := mock.NewMockParams(mock.BASIC, mock.NOTLS, mock.CertSetup{})
 	server, url := mock.Server(mp)
 	defer server.Close()
-	rc, err := newRegClient(image, url)
+	rc, err := newRegClient(image, url, "")
 	if err != nil {
 		t.Fail()
 	}
@@ -253,7 +214,7 @@ func TestV2Bearer(t *testing.T) {
 	mp := mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{})
 	server, url := mock.Server(mp)
 	defer server.Close()
-	rc, err := newRegClient(image, url)
+	rc, err := newRegClient(image, url, "")
 	if err != nil {
 		t.Fail()
 	}
@@ -265,13 +226,14 @@ func TestV2Bearer(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
+	// hard-coded token in the mock distr server
 	if token.Token != "FROBOZZ" {
 		t.Fail()
 	}
 }
 
-// TODO: the mock distribution server doesn't do basic auth
 func TestV2Basic(t *testing.T) {
+	// future: the mock distribution server doesn't do basic auth
 }
 
 // test getting image list and image manifests
@@ -280,7 +242,7 @@ func TestV2Manifests(t *testing.T) {
 	mp := mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{})
 	server, url := mock.Server(mp)
 	defer server.Close()
-	rc, err := newRegClient(image, url)
+	rc, err := newRegClient(image, url, "")
 	if err != nil {
 		t.Fail()
 	}
@@ -317,7 +279,7 @@ func TestV2ManifestHead(t *testing.T) {
 			mp := mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{})
 			server, url := mock.Server(mp)
 			defer server.Close()
-			rc, err := newRegClient(image, url)
+			rc, err := newRegClient(image, url, "")
 			if err != nil {
 				t.Fail()
 			}
@@ -333,15 +295,14 @@ func TestV2ManifestHead(t *testing.T) {
 }
 
 // newRegClient is a helper function to initialize a 'RegClient' struct
-func newRegClient(image string, url string) (RegClient, error) {
-	ir, err := imgref.NewImageRef(fmt.Sprintf("%s/%s", url, image), "http")
+func newRegClient(image string, url string, namespace string) (RegClient, error) {
+	ir, err := imgref.NewImageRef(fmt.Sprintf("%s/%s", url, image), "http", namespace)
 	if err != nil {
 		return RegClient{}, err
 	}
 	return RegClient{
-		ImgRef:    ir,
-		Client:    &http.Client{},
-		Namespace: "",
-		AuthHdr:   AuthHeader{},
+		ImgRef:  ir,
+		Client:  &http.Client{},
+		AuthHdr: AuthHeader{},
 	}, nil
 }

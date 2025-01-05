@@ -22,8 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 	// get the image manifest (not the image *list* manifest)
-	mpt := imgpull.ManifestPullTypeFrom["image"]
-	mh, err := puller.PullManifest(mpt)
+	mh, err := puller.PullManifest(imgpull.Image)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -40,7 +39,7 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// get all the blobs to the current working directory
+	// get all the image blobs to the current working directory
 	err = puller.PullBlobs(mh, "./")
 	if err != nil {
 		fmt.Println(err)

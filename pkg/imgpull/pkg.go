@@ -7,8 +7,8 @@
 //
 // Once you have a Puller, then:
 //
-//	func (p *Puller) PullTar(dest string)               - Pulls an image to a tarfile
-//	func (p *Puller) PullManifest(mpt ManifestPullType) - Pulls an image manifest or manifest list and returns it
-//	func (p *Puller) HeadManifest()                     - Heads an image manifest or manifest list and returns it
-//	func (p *Puller) Pull(toPath string)                - Pulls image blobs to a location on the filesystem
+//	func (p *Puller) PullTar(dest string)                         - Pulls an image to a tarfile
+//	func (p *Puller) PullManifest(mpt ManifestPullType)           - Pulls an image manifest or manifest list and returns it
+//	func (p *Puller) HeadManifest()                               - Heads an image manifest or manifest list and returns it
+//	func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) - Pulls image blobs to a location on the filesystem
 package imgpull

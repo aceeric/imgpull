@@ -58,7 +58,7 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 	if err := o.validate(); err != nil {
 		return Puller{}, err
 	}
-	if ir, err := imgref.NewImageRef(o.Url, o.Scheme); err != nil {
+	if ir, err := imgref.NewImageRef(o.Url, o.Scheme, o.Namespace); err != nil {
 		return Puller{}, err
 	} else {
 		c := &http.Client{}

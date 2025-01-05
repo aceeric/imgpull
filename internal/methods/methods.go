@@ -36,8 +36,6 @@ type RegClient struct {
 	ImgRef imgref.ImageRef
 	// Client is the HTTP Client
 	Client *http.Client
-	// Namespace supports pull-through
-	Namespace string
 	// AuthHdr supports the various auth types (basic, bearer)
 	AuthHdr AuthHeader
 }
@@ -290,32 +288,11 @@ func (rc RegClient) setAuthHdr(req *http.Request) {
 // is the receiver's namespace. If no namespace is configured, then the function
 // returns the empty string.
 func (rc RegClient) nsQueryParm() string {
-	if rc.Namespace != "" {
-		return "?ns=" + rc.Namespace
+	if rc.ImgRef.Namespace != "" {
+		return "?ns=" + rc.ImgRef.Namespace
 	} else {
 		return ""
 	}
-}
-
-// MakeUrl makes an image ref like docker.io/hello-world:latest. If the receiver
-// has a namespace, then the namespace is used for the registry instead of the
-// registry in the receiver. If the passed sha is not the empty string, then it is
-// used as a digest ref, otherwise the ref in the receiver (which could be a tag
-// or a digest is used.
-func (rc RegClient) MakeUrl(sha string) string {
-	regToUse := rc.ImgRef.Registry
-	if rc.Namespace != "" {
-		regToUse = rc.Namespace
-	}
-	var refToUse string
-	if strings.HasPrefix(rc.ImgRef.Ref, "sha256:") {
-		refToUse = "@" + rc.ImgRef.Ref
-	} else if sha != "" {
-		refToUse = "@sha256:" + util.DigestFrom(sha)
-	} else {
-		refToUse = ":" + rc.ImgRef.Ref
-	}
-	return fmt.Sprintf("%s/%s%s", regToUse, rc.ImgRef.Repository, refToUse)
 }
 
 // getWwwAuthenticateHdrs gets all "www-authenticate" headers from

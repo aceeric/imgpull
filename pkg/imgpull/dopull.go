@@ -50,7 +50,7 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(""))
+	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 	if err != nil {
 		return ManifestHolder{}, err
 	}
@@ -66,7 +66,7 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 		if err != nil {
 			return ManifestHolder{}, err
 		}
-		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
+		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.UrlWithDigest(digest))
 		if err != nil {
 			return ManifestHolder{}, err
 		}
@@ -77,7 +77,7 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	if mpt == Image {
 		return mh, nil
 	} else {
-		return ManifestHolder{}, fmt.Errorf("server did not provide a manifest for %q", p.ImgRef.ImageUrl())
+		return ManifestHolder{}, fmt.Errorf("server did not provide a manifest for %q", p.ImgRef.Url())
 	}
 }
 
@@ -121,7 +121,7 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(""))
+	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 }
 
 // pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
@@ -141,7 +141,7 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
-	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(""))
+	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
@@ -154,7 +154,7 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
-		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.MakeUrl(digest))
+		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.UrlWithDigest(digest))
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
@@ -164,7 +164,7 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 			return tar.ImageTarball{}, err
 		}
 	}
-	return mh.newImageTarball(p.ImgRef, p.Opts.Namespace, blobDir)
+	return mh.newImageTarball(p.ImgRef, blobDir)
 }
 
 // connect calls the 'v2' endpoint and looks for an auth header. If an auth
@@ -239,9 +239,8 @@ func (p *Puller) authenticate(auth []string) error {
 // struct is copied into the returned regClient struct which is used to set auth headers.
 func (p *Puller) regCliFrom() methods.RegClient {
 	rc := methods.RegClient{
-		ImgRef:    p.ImgRef,
-		Client:    p.Client,
-		Namespace: p.Opts.Namespace,
+		ImgRef: p.ImgRef,
+		Client: p.Client,
 	}
 	if k, v := p.authHdr(); k != "" {
 		rc.AuthHdr = methods.AuthHeader{

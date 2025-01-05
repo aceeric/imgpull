@@ -32,15 +32,53 @@ func TestPRs(t *testing.T) {
 		{"foo.io/bar/baz/frobozz:v1.2.3", false, ""},
 	}
 	for _, url := range urls {
-		ir, err := NewImageRef(url.url, "https")
+		ir, err := NewImageRef(url.url, "https", "")
 		if url.shouldParse && err != nil {
 			t.Fail()
 		} else if !url.shouldParse && err == nil {
 			t.Fail()
-		} else if url.shouldParse && ir.ImageUrl() != url.parsedUrl {
-			imageUrl := ir.ImageUrl()
+		} else if url.shouldParse && ir.Url() != url.parsedUrl {
+			imageUrl := ir.Url()
 			fmt.Println(imageUrl)
 			t.Fail()
+		}
+	}
+}
+
+// Test make url with permutations of tag, digest, namespace y/n, sha override y/n
+func TestMakeUrl(t *testing.T) {
+	refs := []string{
+		"frobozz.registry.io/foo:v1.2.3",
+		"frobozz.registry.io/foo@sha256:123",
+	}
+	testDigest := "4639e50633756e99edc56b04f814a887c0eb958004c87a95f323558054cc7ef3"
+	ns := []string{"", "flathead.com"}
+	useNs := []bool{false, true}
+	sha := []string{"", testDigest}
+	expUrls := []string{
+		"frobozz.registry.io/foo:v1.2.3",
+		"frobozz.registry.io/foo@sha256:" + testDigest,
+		"flathead.com/foo:v1.2.3",
+		"flathead.com/foo@sha256:" + testDigest,
+		"frobozz.registry.io/foo@sha256:123",
+		"frobozz.registry.io/foo@sha256:123",
+		"flathead.com/foo@sha256:123",
+		"flathead.com/foo@sha256:123",
+	}
+	urlIdx := 0
+	for i := 0; i < len(refs); i++ {
+		for j := 0; j < len(ns); j++ {
+			for c := 0; c < len(sha); c++ {
+				ir, err := NewImageRef(refs[i], "http", ns[j])
+				if err != nil {
+					t.Fail()
+				}
+				url := ir.makeUrl(sha[c], useNs[j])
+				if url != expUrls[urlIdx] {
+					t.Fail()
+				}
+				urlIdx++
+			}
 		}
 	}
 }

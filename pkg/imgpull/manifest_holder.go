@@ -207,29 +207,28 @@ func (mh *ManifestHolder) getImageDigestFor(os string, arch string) (string, err
 }
 
 // newImageTarball creates an 'imageTarball' struct from the passed receiver and args.
-// It supports pull-though by virtue of the 'namespace' arg. The 'sourceDir' arg
-// specifies where the blob files can be found. The function doesn't create the tarball
-// but the struct that is returned has everything needed for the caller to create the
-// tarball.
-func (mh *ManifestHolder) newImageTarball(iref imgref.ImageRef, namespace string, sourceDir string) (tar.ImageTarball, error) {
-	dtm := tar.ImageTarball{
+// The 'sourceDir' arg specifies where the blob files can be found. The function doesn't
+// create the tarball but the struct that is returned has everything needed for the
+// caller to create the tarball.
+func (mh *ManifestHolder) newImageTarball(iref imgref.ImageRef, sourceDir string) (tar.ImageTarball, error) {
+	itb := tar.ImageTarball{
 		SourceDir: sourceDir,
 	}
 	switch mh.Type {
 	case V2dockerManifest:
-		dtm.ConfigDigest = util.DigestFrom(mh.V2dockerManifest.Config.Digest)
-		dtm.ImageUrl = iref.ImageUrlWithNs(namespace)
+		itb.ConfigDigest = util.DigestFrom(mh.V2dockerManifest.Config.Digest)
+		itb.ImageUrl = iref.UrlWithNs()
 		for _, layer := range mh.V2dockerManifest.Layers {
-			dtm.Layers = append(dtm.Layers, types.NewLayer(types.MediaType(layer.MediaType), layer.Digest, layer.Size))
+			itb.Layers = append(itb.Layers, types.NewLayer(types.MediaType(layer.MediaType), layer.Digest, layer.Size))
 		}
 	case V1ociManifest:
-		dtm.ConfigDigest = util.DigestFrom(mh.V1ociManifest.Config.Digest)
-		dtm.ImageUrl = iref.ImageUrlWithNs(namespace)
+		itb.ConfigDigest = util.DigestFrom(mh.V1ociManifest.Config.Digest)
+		itb.ImageUrl = iref.UrlWithNs()
 		for _, layer := range mh.V1ociManifest.Layers {
-			dtm.Layers = append(dtm.Layers, types.NewLayer(types.MediaType(layer.MediaType), layer.Digest, layer.Size))
+			itb.Layers = append(itb.Layers, types.NewLayer(types.MediaType(layer.MediaType), layer.Digest, layer.Size))
 		}
 	default:
-		return dtm, fmt.Errorf("can't create docker tar manifest from %q kind of manifest", manifestTypeToString[mh.Type])
+		return itb, fmt.Errorf("can't create docker tar manifest from %q kind of manifest", manifestTypeToString[mh.Type])
 	}
-	return dtm, nil
+	return itb, nil
 }
