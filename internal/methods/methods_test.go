@@ -132,7 +132,6 @@ func TestV2BlobsConcur(t *testing.T) {
 				t.Fail()
 			}
 			if rc.V2Blobs(layer, filepath.Join(d, digest)) != nil {
-				fmt.Println(err)
 				t.Fail()
 			}
 		}()

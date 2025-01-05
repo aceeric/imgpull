@@ -1,7 +1,6 @@
 package imgref
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -38,8 +37,6 @@ func TestPRs(t *testing.T) {
 		} else if !url.shouldParse && err == nil {
 			t.Fail()
 		} else if url.shouldParse && ir.Url() != url.parsedUrl {
-			imageUrl := ir.Url()
-			fmt.Println(imageUrl)
 			t.Fail()
 		}
 	}
