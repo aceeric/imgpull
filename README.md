@@ -264,9 +264,11 @@ Or, suppose you're pulling from a private registry that presents a cert signed b
     p, err := imgpull.NewPullerWith(opts)
 ```
 
-You can see that the `PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. In fact the CLI params simply map to the fields in the `PullerOpts` struct:
+You can see that the `PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. In fact the CLI options directly map to the fields in the `PullerOpts` struct as shown by the table below.
 
-| Struct Member | Command line option | Setting the struct member | Using the CLI |
+> See the [Examples](examples) directory for a couple of examples on using the code as a library.
+
+| Struct Member | Command line option | Setting via the struct | Setting via the CLI |
 |-|-|-|-|
 | `Url` | Positional param one | `Url: "docker.io/hello-world:latest"` | `imgpull docker.io/hello-world:latest` |
 | `Scheme` | `-s\|--scheme [scheme]` | `Scheme: "http"` | `--scheme http` |
