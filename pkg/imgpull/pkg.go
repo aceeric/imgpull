@@ -2,10 +2,10 @@
 //
 // The top level functions provided by the library are:
 //
-//	func NewPuller(url string, opts ...PullOpt) - Returns a new Puller struct
-//	func NewPullerWith(o PullerOpts)            - Returns a new Puller struct with explicit options
+//	func NewPuller(url string, opts ...PullOpt) - Returns a new Puller interface
+//	func NewPullerWith(o PullerOpts)            - Returns a new Puller interface with explicit options
 //
-// Once you have a Puller, then:
+// Once you have a Puller, then the main functions in the interface are:
 //
 //	func (p *Puller) PullTar(dest string)                         - Pulls an image to a tarfile
 //	func (p *Puller) PullManifest(mpt ManifestPullType)           - Pulls an image manifest or manifest list and returns it

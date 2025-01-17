@@ -16,13 +16,29 @@ import (
 	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
+// Puller is the interface to the package for pulling images and manifests.
+type Puller interface {
+	PullTar(dest string) error
+	PullManifest(mpt ManifestPullType) (ManifestHolder, error)
+	PullBlobs(mh ManifestHolder, blobDir string) error
+	HeadManifest() (types.ManifestDescriptor, error)
+	GetManifest() (ManifestHolder, error)
+	GetUrl() string
+	GetOpts() PullerOpts
+	pull(blobDir string) (tar.ImageTarball, error)
+	authHdr() (string, string)
+	connect() error
+	authenticate(auth []string) error
+	regCliFrom() methods.RegClient
+}
+
 // HTTP status codes that we will interpret as un-authorized
 var unauth = []int{http.StatusUnauthorized, http.StatusForbidden}
 
 // PullTar pulls an image tarball from a registry based on the configuration
 // options in the receiver and writes it to the path/file name specified in the
 // 'dest' arg.
-func (p *Puller) PullTar(dest string) error {
+func (p *puller) PullTar(dest string) error {
 	if dest == "" {
 		return fmt.Errorf("no destination specified for pull of %q", p.Opts.Url)
 	}
@@ -41,7 +57,7 @@ func (p *Puller) PullTar(dest string) error {
 
 // PullManifest pulls an image manifest or an image list manifest based on the value
 // of the 'mpt' arg.
-func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
+func (p *puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
@@ -82,7 +98,7 @@ func (p *Puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 }
 
 // PullBlobs pulls the blobs for an image, writing them into 'blobDir'.
-func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) error {
+func (p *puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	if err := p.connect(); err != nil {
 		return err
 	}
@@ -99,7 +115,7 @@ func (p *Puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 // 'ManifestDescriptor' returned to the caller contains the image digest,
 // media type and manifest size, as provided by the upstream distribution
 // server.
-func (p *Puller) HeadManifest() (types.ManifestDescriptor, error) {
+func (p *puller) HeadManifest() (types.ManifestDescriptor, error) {
 	if err := p.connect(); err != nil {
 		return types.ManifestDescriptor{}, err
 	}
@@ -112,7 +128,7 @@ func (p *Puller) HeadManifest() (types.ManifestDescriptor, error) {
 // the registry. If no image list manifest is available then an image manifest
 // will be provided by the registry if available. Whatever the registry provides
 // is returned in a 'ManifestHolder' which holds all four supported manifest types.
-func (p *Puller) GetManifest() (ManifestHolder, error) {
+func (p *puller) GetManifest() (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
@@ -124,6 +140,16 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 }
 
+// GetUrl returns the image ref from the receiver
+func (p *puller) GetUrl() string {
+	return p.ImgRef.Url()
+}
+
+// GetOpts returns puller options
+func (p *puller) GetOpts() PullerOpts {
+	return p.Opts
+}
+
 // pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
 // An 'imageTarball' struct is returned that describes the pulled image. The directory
 // specfied by 'blobDir' will be populated with:
@@ -132,7 +158,7 @@ func (p *Puller) GetManifest() (ManifestHolder, error) {
 //  2. The layer blobs.
 //
 // All blobs are saved into this directory with filenames consisting of 64-character digests.
-func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
+func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 	if err := p.connect(); err != nil {
 		return tar.ImageTarball{}, err
 	}
@@ -176,7 +202,7 @@ func (p *Puller) pull(blobDir string) (tar.ImageTarball, error) {
 //
 // If the function has already been called on the receiver, it immediately
 // returns taking no action.
-func (p *Puller) connect() error {
+func (p *puller) connect() error {
 	if p.Connected {
 		return nil
 	}
@@ -204,7 +230,7 @@ func (p *Puller) connect() error {
 // struct so that it is available to be used for all subsequent API calls to the
 // distribution server. For example if 'bearer' then the token received from the
 // remote registry will be added to the receiver.
-func (p *Puller) authenticate(auth []string) error {
+func (p *puller) authenticate(auth []string) error {
 	rc := p.regCliFrom()
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
@@ -237,7 +263,7 @@ func (p *Puller) authenticate(auth []string) error {
 // headers, then the Connect function must previously have been called on the receiver so
 // that the auth struct in the receiver is initialized by virtue of that call. The auth
 // struct is copied into the returned regClient struct which is used to set auth headers.
-func (p *Puller) regCliFrom() methods.RegClient {
+func (p *puller) regCliFrom() methods.RegClient {
 	rc := methods.RegClient{
 		ImgRef: p.ImgRef,
 		Client: p.Client,

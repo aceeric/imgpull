@@ -10,7 +10,8 @@ import (
 	"strings"
 )
 
-// PullerOpts defines all the configurable behaviors of the Puller.
+// PullerOpts defines all the configurables for pulling an image from an
+// upstream OCI distribution server.
 type PullerOpts struct {
 	// Url is the image Url like 'docker.io/hello-world:latest'.
 	Url string

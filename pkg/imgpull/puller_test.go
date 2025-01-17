@@ -29,7 +29,7 @@ func TestPullerOptfunc(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	if p.Opts.Url != url || p.Opts.Scheme != scheme || p.Opts.OStype != ostype || p.Opts.ArchType != archtype {
+	if p.GetOpts().Url != url || p.GetOpts().Scheme != scheme || p.GetOpts().OStype != ostype || p.GetOpts().ArchType != archtype {
 		t.Fail()
 	}
 }
