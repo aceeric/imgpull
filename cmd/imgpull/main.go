@@ -36,6 +36,6 @@ func pullTar(p imgpull.Puller, tarFile string) {
 	if err := p.PullTar(tarFile); err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Printf("image %q saved to %q in %s\n", p.ImgRef.Url(), tarFile, time.Since(start))
+		fmt.Printf("image %q saved to %q in %s\n", p.GetUrl(), tarFile, time.Since(start))
 	}
 }

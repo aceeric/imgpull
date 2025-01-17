@@ -4,12 +4,33 @@ import (
 	"net/http"
 
 	"github.com/aceeric/imgpull/internal/imgref"
+	"github.com/aceeric/imgpull/internal/methods"
+	"github.com/aceeric/imgpull/internal/tar"
 	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
-// Puller is the top-level abstraction. It carries everything that is needed to pull
+type Puller interface {
+	PullTar(dest string) error
+	PullManifest(mpt ManifestPullType) (ManifestHolder, error)
+	PullBlobs(mh ManifestHolder, blobDir string) error
+	HeadManifest() (types.ManifestDescriptor, error)
+	GetManifest() (ManifestHolder, error)
+	GetUrl() string
+	GetOpts() PullerOpts
+	pull(blobDir string) (tar.ImageTarball, error)
+	authHdr() (string, string)
+	connect() error
+	authenticate(auth []string) error
+	regCliFrom() methods.RegClient
+}
+
+func NewPullerZ() Puller {
+	return &puller{}
+}
+
+// puller is the top-level abstraction. It carries everything that is needed to pull
 // an OCI image from an upstream OCI distribution server.
-type Puller struct {
+type puller struct {
 	// Opts defines all the configurable behaviors of the puller.
 	Opts PullerOpts
 	// ImgRef is the parsed image url, e.g.: 'docker.io/hello-world:latest'
@@ -56,20 +77,20 @@ func NewPuller(url string, opts ...PullOpt) (Puller, error) {
 // not inferred - and cannot be inferred - by the function.
 func NewPullerWith(o PullerOpts) (Puller, error) {
 	if err := o.validate(); err != nil {
-		return Puller{}, err
+		return &puller{}, err
 	}
 	if ir, err := imgref.NewImageRef(o.Url, o.Scheme, o.Namespace); err != nil {
-		return Puller{}, err
+		return &puller{}, err
 	} else {
 		c := &http.Client{}
 		if cfg, err := o.configureTls(); err != nil {
-			return Puller{}, err
+			return &puller{}, err
 		} else if cfg != nil {
 			c.Transport = &http.Transport{
 				TLSClientConfig: cfg,
 			}
 		}
-		return Puller{
+		return &puller{
 			ImgRef: ir,
 			Client: c,
 			Opts:   o,
@@ -79,7 +100,7 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 
 // authHdr returns a key/value pair to set an auth header based on whether
 // the receiver is configured for bearer or basic auth.
-func (p *Puller) authHdr() (string, string) {
+func (p *puller) authHdr() (string, string) {
 	if p.Token != (types.BearerToken{}) {
 		return "Authorization", "Bearer " + p.Token.Token
 	} else if p.Opts.Username != "" {
