@@ -2,7 +2,12 @@
 
 This project consists of a library and a small CLI that **only** pulls OCI container images. The project goal was to create a feature-capable and robust image puller with a minimalist code base.
 
-[TOC]
+* [Quick Start - CLI](#quick-start---cli)
+  + [Usage](#usage)
+  + [Options](#options)
+  + [CLI Examples](#cli-examples)
+* [Quick Start - Library](#quick-start---library)
+  + [The `Puller` interface](#the--puller--interface)
 ---
 
 ## Quick Start - CLI
