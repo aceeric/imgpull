@@ -7,7 +7,7 @@ This project consists of a library and a small CLI that **only** pulls OCI conta
   + [Options](#options)
   + [CLI Examples](#cli-examples)
 * [Quick Start - Library](#quick-start---library)
-  + [The `Puller` interface](#the--puller--interface)
+  + [The `Puller` interface](#the-puller-interface)
 ---
 
 ## Quick Start - CLI
