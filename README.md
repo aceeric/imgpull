@@ -1,15 +1,9 @@
 # Simple Container Image Puller
 
-This project creates a small CLI that **only** pulls OCI container images. The project goal was to create a feature-capable and robust image puller with a minimalist code base.
+This project consists of a library and a small CLI that **only** pulls OCI container images. The project goal was to create a feature-capable and robust image puller with a minimalist code base.
 
-The project can be used as a CLI, or, as a library.
-
+[TOC]
 ---
-
-**Table of Contents**
-
-- [Quick Start - CLI](#quick-start---cli)
-- [Quick Start - Library](#quick-start---library)
 
 ## Quick Start - CLI
 
@@ -178,7 +172,7 @@ Example:
 bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar --cacert /path/to/ca.pem --parsed
 ```
 
-### Examples
+### CLI Examples
 
 1. Pull the image for `linux/amd64` to `hello-world.tar` in the working directory:
    ```
@@ -218,9 +212,9 @@ bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar -
 The project was designed for the code to be easily used as a library. The two primary abstractions are:
 
 1. `PullerOpts` - Configures how you'll interact with the upstream distribution server.
-2. `Puller` - Contains all the logic to actually pull the image.
+2. `Puller` - An interface comprising the API of the library for pulling images and manifests.
 
-For example:
+Example:
 
 ```
 package main
@@ -266,7 +260,7 @@ Or, suppose you're pulling from a private registry that presents a cert signed b
 
 You can see that the `PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. In fact the CLI options directly map to the fields in the `PullerOpts` struct as shown by the table below.
 
-> See the [Examples](examples) directory for a couple of examples on using the code as a library.
+> See the [Examples](examples) directory for examples of how to use the project as a library.
 
 | Struct Member | Command line option | Setting via the struct | Setting via the CLI |
 |-|-|-|-|
@@ -281,3 +275,22 @@ You can see that the `PullerOpts` struct is the key to configuring the puller to
 | `CaCert` | `-x\|--cacert [tls ca cert]` | `CaCert: "/path/to/ca-cert.pem"` | `--cacert /path/to/ca-cert.pem` |
 | `Insecure` | `-i\|--insecure` | `Insecure: true` | `--insecure` |
 | `Namespace` | `-n\|--ns [namespace]` | `Namespace: "docker.io"` | `--ns docker.io` |
+
+### The `Puller` interface
+
+The `Puller` interface is how you interact with the library. The functions in the interface are shown in the table below. Each function is defined along with documentation in the `pkg/imgpull/dopull.go` file. All interface functions are obviously called via a receiver. E.g.:
+```
+puller, _ := imgpull.NewPuller("docker.io/hello-world:latest")
+puller.PullTar("/tmp/docker.io.hello-world.latest.tar")
+```
+> Once you create the puller, the `PullerOpts` contained within the puller govern the puller's behavior.
+
+| Interface function | Purpose |
+|-|-|
+| `PullTar(dest string) error` | Pulls an image tarball using the `PullerOpts` in the receiver, and saves the tarball to the filesystem. |
+| `PullManifest(mpt ManifestPullType) (ManifestHolder, error)` | Pulls an image list manifest or an image manifest depending on the `PullerOpts` in the receiver. |
+| `PullBlobs(mh ManifestHolder, blobDir string) error` | Pulls all the blobs for the image in the passed `ManifestHolder` and writes them to the filesystem. |
+| `HeadManifest() (types.ManifestDescriptor, error)` | Performs a manifest HEAD request for the image in the receiver. |
+| `GetManifest() (ManifestHolder, error)` | Gets a full manifest for the image in the receiver. |
+| `GetUrl() string` | Gets the image URL in the receiver. E.g.: `docker.io/hello-world:latest`. |
+| `GetOpts() PullerOpts` | Gets the options in the receiver. |
