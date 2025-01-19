@@ -292,10 +292,10 @@ puller.PullTar("/tmp/docker.io.hello-world.latest.tar")
 
 | Interface function | Purpose |
 |-|-|
-| `PullTar(dest string) error` | Pulls an image tarball using the `PullerOpts` in the receiver, and saves the tarball to the filesystem. |
-| `PullManifest(mpt ManifestPullType) (ManifestHolder, error)` | Pulls an image list manifest or an image manifest depending on the `PullerOpts` in the receiver. |
-| `PullBlobs(mh ManifestHolder, blobDir string) error` | Pulls all the blobs for the image in the passed `ManifestHolder` and writes them to the filesystem. |
-| `HeadManifest() (types.ManifestDescriptor, error)` | Performs a manifest HEAD request for the image in the receiver. |
-| `GetManifest() (ManifestHolder, error)` | Gets a full manifest for the image in the receiver. |
+| `PullTar(dest string) error` | Pulls an image tarball using the `PullerOpts` in the receiver, and saves the tarball to the filesystem at the path and file name provided in the `dest` arg. |
+| `PullManifest(mpt ManifestPullType) (ManifestHolder, error)` | Pulls an image list manifest or an image manifest depending on the passed `ManifestPullType` arg. |
+| `PullBlobs(mh ManifestHolder, blobDir string) error` | Pulls all the blobs for the image in the passed `ManifestHolder` and writes them to the filesystem at the `blobDir` path. |
+| `HeadManifest() (types.ManifestDescriptor, error)` | Performs a manifest HEAD request for the image in the receiver. Returns the manifest digest, media type, and size in the returned `ManifestDescriptor`. |
+| `GetManifest() (ManifestHolder, error)` | Gets a manifest for the image in the receiver. The type of manifest returned is determined by the upstream. For example, if the receiver specifies a tag, and the upstream has a manifest list for that tag, then a manifest list is returned from the function. This would typically be the case when the upstream is a [multi-platform](https://docs.docker.com/build/building/multi-platform/) image. But if the upstream image is **not** multi-platform, then get by tag will return an image manifest, not an image list manifest. |
 | `GetUrl() string` | Gets the image URL in the receiver. E.g.: `docker.io/hello-world:latest`. |
 | `GetOpts() PullerOpts` | Gets the options in the receiver. |
