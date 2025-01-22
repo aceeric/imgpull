@@ -32,6 +32,9 @@ type PullerOpts struct {
 	// CaCert is the path on the file system to a client CA if the host truststore cannot verify the
 	// server cert.
 	CaCert string
+	// TlsCfg supports initializing the puller with an externally-initialized client
+	// TLS Configuration.
+	TlsCfg *tls.Config
 	// Insecure skips server cert validation for the upstream registry (https-only.)
 	Insecure bool
 	// Namespace supports pull-through and mirroring, i.e. pull 'localhost:5000/hello-world:latest'
@@ -78,6 +81,9 @@ func (o PullerOpts) validate() error {
 // on TLS-related variables in the receiver. If there are no TLS-related variables in
 // the receiver then nil is returned.
 func (o PullerOpts) configureTls() (*tls.Config, error) {
+	if o.TlsCfg != nil {
+		return o.TlsCfg, nil
+	}
 	if o.Scheme == "http" {
 		return nil, nil
 	}
@@ -96,7 +102,9 @@ func (o PullerOpts) configureTls() (*tls.Config, error) {
 			return nil, err
 		} else {
 			cp := x509.NewCertPool()
-			cp.AppendCertsFromPEM(caCert)
+			if !cp.AppendCertsFromPEM(caCert) {
+				return nil, err
+			}
 			cfg.RootCAs = cp
 			hasCfg = true
 		}

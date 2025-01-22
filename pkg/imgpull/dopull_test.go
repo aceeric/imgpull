@@ -2,6 +2,8 @@ package imgpull
 
 import (
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -161,6 +163,61 @@ func TestPullManifest(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// Tests the ability to initialize a "long lived" client TLS config struct
+// and use it to initlize the puller. This enables clients using the puller
+// as a library to perform client TLS init once, and use it over time to
+// avoid the TLS re-initialization.
+func TestPullReuseTlsCfg(t *testing.T) {
+	certSetup, err := mock.NewCertSetup()
+	if err != nil {
+		t.Fail()
+	}
+	d, _ := os.MkdirTemp("", "")
+	defer os.RemoveAll(d)
+	clientCert := certSetup.ClientCertToFile(d, "client.crt")
+	clientKey := certSetup.ClientCertPrivKeyToFile(d, "client.key")
+	caCert := certSetup.CaToFile(d, "ca.crt")
+
+	mp := mock.NewMockParams(mock.NONE, mock.MTLS_SECURE, certSetup)
+	server, url := mock.Server(mp)
+	defer server.Close()
+
+	// initialize a client TLS config struct for re-use
+	cfg := &tls.Config{}
+	if cert, err := tls.LoadX509KeyPair(clientCert, clientKey); err != nil {
+		t.Fail()
+	} else {
+		cfg.Certificates = []tls.Certificate{cert}
+		if caBytes, err := os.ReadFile(caCert); err != nil {
+			t.Fail()
+		} else {
+			cp := x509.NewCertPool()
+			cp.AppendCertsFromPEM(caBytes)
+			cfg.RootCAs = cp
+		}
+	}
+
+	testOpts := func() PullOpt {
+		return func(p *PullerOpts) {
+			p.Scheme = "https"
+			p.OStype = "linux"
+			p.ArchType = "amd64"
+			p.TlsCfg = cfg
+		}
+	}
+	for i := 0; i < 3; i++ {
+		p, err := NewPuller(fmt.Sprintf("%s/hello-world:latest", url), testOpts())
+		if err != nil {
+			t.Fail()
+		}
+		_, err = p.PullManifest(ImageList)
+		if err != nil {
+			t.Fail()
+		}
+
 	}
 }
 
