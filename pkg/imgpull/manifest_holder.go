@@ -55,7 +55,6 @@ var manifestTypeToString = map[ManifestType]string{
 type ManifestHolder struct {
 	Type                 ManifestType          `json:"type"`
 	Digest               string                `json:"digest"`
-	Url                  string                `json:"url"`
 	ImageUrl             string                `json:"imageUrl"`
 	V1ociIndex           v1oci.Index           `json:"v1.oci.index"`
 	V1ociManifest        v1oci.Manifest        `json:"v1.oci.manifest"`
