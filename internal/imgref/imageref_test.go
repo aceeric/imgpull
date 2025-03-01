@@ -29,6 +29,8 @@ func TestPRs(t *testing.T) {
 		{"bar/baz@sha256:123", true, "bar/baz@sha256:123"},
 		{"baz@sha256:123", false, ""},
 		{"foo.io/bar/baz/frobozz:v1.2.3", false, ""},
+		// in this case bar.io is the namespace so it is stripped
+		{"localhost:8080/docker.io/foo/bar:v1.2.3", true, "localhost:8080/foo/bar:v1.2.3"},
 	}
 	for _, url := range urls {
 		ir, err := NewImageRef(url.url, "https", "")

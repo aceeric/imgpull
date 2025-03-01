@@ -161,7 +161,12 @@ func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
 // V2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
 // passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
 func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
-	url := fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, layer.Digest, rc.nsQueryParm())
+	url := ""
+	if rc.ImgRef.NsInPath {
+		url = fmt.Sprintf("%s/v2/%s/%s/blobs/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace, rc.ImgRef.Repository, layer.Digest)
+	} else {
+		url = fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, layer.Digest, rc.nsQueryParm())
+	}
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	rc.setAuthHdr(req)
 	resp, err := rc.Client.Do(req)
@@ -203,11 +208,7 @@ func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
 // Generally speaking: pull by tag returns an image list from the registry if one is available and pull
 // by digest (SHA) returns an image manifest. But this might not be true all the time.
 func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
-	ref := rc.ImgRef.Ref
-	if sha != "" {
-		ref = sha
-	}
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, ref, rc.nsQueryParm())
+	url := rc.makeManifestUrl(sha)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("Accept", allManifestTypesStr())
 	rc.setAuthHdr(req)
@@ -233,7 +234,7 @@ func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
 	} else {
 		manifestDigest = util.DigestFrom(manifestDigest)
 		if computedDigest != manifestDigest {
-			return ManifestGetResult{}, fmt.Errorf("digest mismatch for %q", ref)
+			return ManifestGetResult{}, fmt.Errorf("digest mismatch for %q", url)
 		}
 	}
 	return ManifestGetResult{
@@ -244,9 +245,10 @@ func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
 }
 
 // V2ManifestsHead is like V2Manifests but does a HEAD request. The result is returned in a
-// smaller struct with only media type, digest, and size (of manifest).
+// smaller struct with only media type, digest, and size (of manifest). We don't allow overriding
+// the ref becuase the use case for this method is to HEAD the manifest list.
 func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
-	url := fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, rc.ImgRef.Ref, rc.nsQueryParm())
+	url := rc.makeManifestUrl("")
 	req, _ := http.NewRequest(http.MethodHead, url, nil)
 	req.Header.Set("Accept", allManifestTypesStr())
 	rc.setAuthHdr(req)
@@ -273,6 +275,21 @@ func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
 		Digest:    digest,
 		Size:      int(resp.ContentLength),
 	}, nil
+}
+
+// makeManifestUrl is a help that forms  the URL string for the v2/.../manifests API call. It
+// returns a URL taking into account whether the image ref in the receiver is namespaced, and
+// whether the namespace is path-based or parameter based.
+func (rc RegClient) makeManifestUrl(sha string) string {
+	ref := rc.ImgRef.Ref
+	if sha != "" {
+		ref = sha
+	}
+	if rc.ImgRef.NsInPath {
+		return fmt.Sprintf("%s/v2/%s/%s/manifests/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace, rc.ImgRef.Repository, ref)
+	} else {
+		return fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, ref, rc.nsQueryParm())
+	}
 }
 
 // setAuthHdr sets an auth header (e.g. "Bearer", "Basic") on the passed request

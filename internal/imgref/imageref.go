@@ -42,12 +42,16 @@ type ImageRef struct {
 	// pull from localhost if localhost is a mirror or a pull-through
 	// registry.
 	Namespace string
+	// if the url was provided with the namespace in the path like
+	// localhost:8080/docker.io/hello-world:latest then this is set to
+	// true, else it is false.
+	NsInPath bool
 }
 
 // NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
 // or docker.io/library/hello-world@sha256:...) into an 'imageRef' struct. The url
-// MUST begin with a registry hostname (e.g. quay.io) - it is not (and cannot be)
-// inferred.
+// MUST begin with a registry hostname (e.g. quay.io or localhost:8080) - it is not
+// (and cannot be) inferred.
 func NewImageRef(url, scheme, namespace string) (ImageRef, error) {
 	ir := ImageRef{
 		raw:       strings.ToLower(url),
@@ -67,8 +71,19 @@ func NewImageRef(url, scheme, namespace string) (ImageRef, error) {
 			ir.org = "library"
 		}
 	} else if len(parts) == 3 {
-		ir.org = parts[1]
-		ir.image = parts[2]
+		if strings.Contains(parts[1], ".") {
+			ir.Namespace = parts[1]
+			ir.NsInPath = true
+			ir.image = parts[2]
+		} else {
+			ir.org = parts[1]
+			ir.image = parts[2]
+		}
+	} else if len(parts) == 4 && strings.Contains(parts[1], ".") {
+		ir.Namespace = parts[1]
+		ir.NsInPath = true
+		ir.org = parts[2]
+		ir.image = parts[3]
 	} else {
 		return ImageRef{}, fmt.Errorf("unable to parse image url %q", ir.raw)
 	}
@@ -107,7 +122,7 @@ func (ir *ImageRef) Url() string {
 }
 
 // UrlWithNs returns the image url in the receiver with registry component
-// replaced buy the namespace in the receiver if the namespace is non-empty.
+// replaced by the namespace in the receiver if the namespace is non-empty.
 // E.g. if the image url used to actually pull an image is
 // 'localhost:8080/jetstack/cert-manager-controller:v1.16.2' and the namespace
 // in the receiver is 'quay.io' then the function returns:
