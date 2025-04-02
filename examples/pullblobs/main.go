@@ -22,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 	// get the image manifest (not the image *list* manifest)
-	mh, err := puller.PullManifest(imgpull.Image)
+	mh, err := puller.GetManifestByType(imgpull.Image)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

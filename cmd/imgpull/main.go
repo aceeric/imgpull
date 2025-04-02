@@ -22,7 +22,7 @@ func main() {
 
 func showManifest(p imgpull.Puller, manifestType string) {
 	mt := imgpull.ManifestPullTypeFrom[manifestType]
-	if mh, err := p.PullManifest(mt); err != nil {
+	if mh, err := p.GetManifestByType(mt); err != nil {
 		fmt.Println(err)
 	} else if manifest, err := mh.ToString(); err != nil {
 		fmt.Println(err)

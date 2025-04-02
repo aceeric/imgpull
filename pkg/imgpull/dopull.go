@@ -18,26 +18,37 @@ import (
 
 // Puller is the interface to the package for pulling images and manifests.
 type Puller interface {
-	PullTar(dest string) error
-	PullManifest(mpt ManifestPullType) (ManifestHolder, error)
-	PullBlobs(mh ManifestHolder, blobDir string) error
-	HeadManifest() (types.ManifestDescriptor, error)
+	// GetManifestByType pulls an image manifest or an image list manifest based on the value
+	// of the 'mpt' arg.
+	GetManifestByType(mpt ManifestPullType) (ManifestHolder, error)
+	// GetManifest gets a manifest for the image in the receiver. If the receiver
+	// is configured with a tag then the manifest returned is determined by the
+	// upstream registry: if an image list manifest is available, it will be provided by
+	// the registry. If no image list manifest is available then an image manifest
+	// will be provided by the registry if available. Whatever the registry provides
+	// is returned in a 'ManifestHolder' which holds all four supported manifest types,
+	// only one of which will be populated.
 	GetManifest() (ManifestHolder, error)
+	// HeadManifest does a HEAD request for the image URL in the receiver. The
+	// 'ManifestDescriptor' returned to the caller contains the image digest,
+	// media type and manifest size, as provided by the upstream distribution
+	// server.
+	HeadManifest() (types.ManifestDescriptor, error)
+	// PullBlobs pulls the blobs for an image, writing them into 'blobDir'.
+	PullBlobs(mh ManifestHolder, blobDir string) error
+	// PullTar pulls an image tarball from a registry based on the configuration
+	// options in the receiver and writes it to the path/file name specified in the
+	// 'dest' arg.
+	PullTar(dest string) error
+	// GetUrl returns the image ref from the receiver
 	GetUrl() string
+	// GetOpts returns puller options
 	GetOpts() PullerOpts
-	pull(blobDir string) (tar.ImageTarball, error)
-	authHdr() (string, string)
-	connect() error
-	authenticate(auth []string) error
-	regCliFrom() methods.RegClient
 }
 
 // HTTP status codes that we will interpret as un-authorized
 var unauth = []int{http.StatusUnauthorized, http.StatusForbidden}
 
-// PullTar pulls an image tarball from a registry based on the configuration
-// options in the receiver and writes it to the path/file name specified in the
-// 'dest' arg.
 func (p *puller) PullTar(dest string) error {
 	if dest == "" {
 		return fmt.Errorf("no destination specified for pull of %q", p.Opts.Url)
@@ -55,9 +66,7 @@ func (p *puller) PullTar(dest string) error {
 	}
 }
 
-// PullManifest pulls an image manifest or an image list manifest based on the value
-// of the 'mpt' arg.
-func (p *puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
+func (p *puller) GetManifestByType(mpt ManifestPullType) (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
@@ -97,7 +106,6 @@ func (p *puller) PullManifest(mpt ManifestPullType) (ManifestHolder, error) {
 	}
 }
 
-// PullBlobs pulls the blobs for an image, writing them into 'blobDir'.
 func (p *puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	if err := p.connect(); err != nil {
 		return err
@@ -111,10 +119,6 @@ func (p *puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	return nil
 }
 
-// HeadManifest does a HEAD request for the image URL in the receiver. The
-// 'ManifestDescriptor' returned to the caller contains the image digest,
-// media type and manifest size, as provided by the upstream distribution
-// server.
 func (p *puller) HeadManifest() (types.ManifestDescriptor, error) {
 	if err := p.connect(); err != nil {
 		return types.ManifestDescriptor{}, err
@@ -122,12 +126,6 @@ func (p *puller) HeadManifest() (types.ManifestDescriptor, error) {
 	return p.regCliFrom().V2ManifestsHead()
 }
 
-// GetManifest gets a manifest for the image in the receiver. If the receiver
-// is configured with a tag then the manifest returned is determined by the
-// upstream registry: if an image list manifest is available, it will be provided by
-// the registry. If no image list manifest is available then an image manifest
-// will be provided by the registry if available. Whatever the registry provides
-// is returned in a 'ManifestHolder' which holds all four supported manifest types.
 func (p *puller) GetManifest() (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
@@ -140,12 +138,10 @@ func (p *puller) GetManifest() (ManifestHolder, error) {
 	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 }
 
-// GetUrl returns the image ref from the receiver
 func (p *puller) GetUrl() string {
 	return p.ImgRef.Url()
 }
 
-// GetOpts returns puller options
 func (p *puller) GetOpts() PullerOpts {
 	return p.Opts
 }

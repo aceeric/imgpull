@@ -151,7 +151,7 @@ func TestPullManifest(t *testing.T) {
 				t.Fail()
 			}
 			for _, mpt := range []ManifestPullType{ImageList, Image} {
-				mh, err := p.PullManifest(mpt)
+				mh, err := p.GetManifestByType(mpt)
 				if err != nil {
 					t.Fail()
 				}
@@ -213,7 +213,7 @@ func TestPullReuseTlsCfg(t *testing.T) {
 		if err != nil {
 			t.Fail()
 		}
-		_, err = p.PullManifest(ImageList)
+		_, err = p.GetManifestByType(ImageList)
 		if err != nil {
 			t.Fail()
 		}
@@ -350,7 +350,7 @@ func TestPullBlobs(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	mh, err := p.PullManifest(Image)
+	mh, err := p.GetManifestByType(Image)
 	if err != nil {
 		t.Fail()
 	}
