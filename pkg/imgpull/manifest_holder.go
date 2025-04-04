@@ -171,9 +171,9 @@ func (mh *ManifestHolder) unMarshalManifest(mt ManifestType, bytes []byte) error
 	return err
 }
 
-// isManifestList returns true of the manifest held by the ManifestHolder
+// IsManifestList returns true of the manifest held by the ManifestHolder
 // receiver is a manifest list (not an image manifest.)
-func (mh *ManifestHolder) isManifestList() bool {
+func (mh *ManifestHolder) IsManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
 

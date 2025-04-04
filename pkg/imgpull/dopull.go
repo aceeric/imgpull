@@ -79,7 +79,7 @@ func (p *puller) GetManifestByType(mpt ManifestPullType) (ManifestHolder, error)
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	if mh.isManifestList() {
+	if mh.IsManifestList() {
 		if mpt == ImageList {
 			return mh, nil
 		}
@@ -167,7 +167,7 @@ func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
-	if mh.isManifestList() {
+	if mh.IsManifestList() {
 		digest, err := mh.getImageDigestFor(p.Opts.OStype, p.Opts.ArchType)
 		if err != nil {
 			return tar.ImageTarball{}, err

@@ -155,10 +155,10 @@ func TestPullManifest(t *testing.T) {
 				if err != nil {
 					t.Fail()
 				}
-				if mpt == ImageList && !mh.isManifestList() {
+				if mpt == ImageList && !mh.IsManifestList() {
 					t.Fail()
 				}
-				if mpt == Image && mh.isManifestList() {
+				if mpt == Image && mh.IsManifestList() {
 					t.Fail()
 				}
 			}
