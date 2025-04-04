@@ -119,6 +119,39 @@ func toManifestType(mediaType types.MediaType) ManifestType {
 	}
 }
 
+// Bytes marshals the JSON manifest of the holder into a byte array and returns it
+func (mh *ManifestHolder) Bytes() ([]byte, error) {
+	var err error
+	var marshalled []byte
+	switch mh.Type {
+	case V2dockerManifestList:
+		marshalled, err = json.Marshal(mh.V2dockerManifestList)
+	case V2dockerManifest:
+		marshalled, err = json.Marshal(mh.V2dockerManifest)
+	case V1ociIndex:
+		marshalled, err = json.Marshal(mh.V1ociIndex)
+	case V1ociManifest:
+		marshalled, err = json.Marshal(mh.V1ociManifest)
+	}
+	return marshalled, err
+}
+
+// MediaType returns the string media type of the receiver
+func (mh *ManifestHolder) MediaType() string {
+	switch mh.Type {
+	case V2dockerManifestList:
+		return string(types.V2dockerManifestListMt)
+	case V2dockerManifest:
+		return string(types.V2dockerManifestMt)
+	case V1ociIndex:
+		return string(types.V1ociIndexMt)
+	case V1ociManifest:
+		return string(types.V1ociManifestMt)
+	default:
+		return ""
+	}
+}
+
 // unMarshalManifest unmarshals the passed bytes and stores the resulting typed manifest struct
 // in the corresponding manifest variable in the receiver struct.
 func (mh *ManifestHolder) unMarshalManifest(mt ManifestType, bytes []byte) error {
