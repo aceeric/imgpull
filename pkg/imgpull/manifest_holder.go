@@ -177,10 +177,10 @@ func (mh *ManifestHolder) isManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
 }
 
-// layers returns an array of 'Layer' for the manifest contained by the ManifestHolder
+// Layers returns an array of 'Layer' for the manifest contained by the ManifestHolder
 // receiver. The Config is also returned since that is obtained using the v2/blobs
-// endpoint just like the image layers.
-func (mh *ManifestHolder) layers() []types.Layer {
+// endpoint just like the image Layers.
+func (mh *ManifestHolder) Layers() []types.Layer {
 	layers := make([]types.Layer, 0)
 	switch mh.Type {
 	case V2dockerManifest:

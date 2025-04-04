@@ -111,7 +111,7 @@ func (p *puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 		return err
 	}
 	rc := p.regCliFrom()
-	for _, layer := range mh.layers() {
+	for _, layer := range mh.Layers() {
 		if err := rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
 			return err
 		}
@@ -181,7 +181,7 @@ func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 			return tar.ImageTarball{}, err
 		}
 	}
-	for _, layer := range mh.layers() {
+	for _, layer := range mh.Layers() {
 		if rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))) != nil {
 			return tar.ImageTarball{}, err
 		}
