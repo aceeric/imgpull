@@ -61,16 +61,16 @@ var manifestTypeToString = map[ManifestType]string{
 
 // ManifestHolder holds one of: v1 oci manifest list, v1 oci manifest, docker v2
 // manifest list, or docker v2 manifest. The original data from the upstream
-// is also in the 'Data' member of the struct. The 'Data' member is the authoritative
+// is also in the 'Data' member of the struct. The 'Bytes' member is the authoritative
 // representation of the upstream data: if you compute a digest from it, the digest
 // will match the 'Digest' field (also from the upstream) The other fields like
-// 'V1ociIndex' are cosmetic and may not produce the same digest as the 'Data'
+// 'V1ociIndex' are cosmetic and may not produce the same digest as the 'Bytes'
 // field.
 type ManifestHolder struct {
 	Type                 ManifestType          `json:"type"`
 	Digest               string                `json:"digest"`
 	ImageUrl             string                `json:"imageUrl"`
-	Data                 []byte                `json:"data,omitempty"`
+	Bytes                []byte                `json:"bytes,omitempty"`
 	V1ociIndex           v1oci.Index           `json:"v1.oci.index"`
 	V1ociManifest        v1oci.Manifest        `json:"v1.oci.manifest"`
 	V2dockerManifestList v2docker.ManifestList `json:"v2.docker.manifestList"`
@@ -113,7 +113,7 @@ func newManifestHolder(mediaType types.MediaType, bytes []byte, digest string, i
 		Type:     mt,
 		Digest:   digest,
 		ImageUrl: imageUrl,
-		Data:     bytes,
+		Bytes:    bytes,
 	}
 	err := mh.unMarshalManifest(mt, bytes)
 	if err != nil {
