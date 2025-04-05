@@ -38,6 +38,11 @@ type Layer struct {
 	Size      int       `json:"size"`
 }
 
+// IsImageManifest returns true if the descriptor is an image manifest
+func (md ManifestDescriptor) IsImageManifest() bool {
+	return md.MediaType == V2dockerManifestMt || md.MediaType == V1ociManifestMt
+}
+
 // NewLayer returns a new 'Layer' struct from the passed args
 func NewLayer(mediaType MediaType, digest string, size int64) Layer {
 	return Layer{
