@@ -213,10 +213,10 @@ func (mh *ManifestHolder) Layers() []types.Layer {
 	return layers
 }
 
-// getImageDigestFor looks in the manifest list in the receiver for a manifest in the list
+// GetImageDigestFor looks in the manifest list in the receiver for a manifest in the list
 // matching the passed OS and architecture and if found returns it. Otherwise an error is
 // returned.
-func (mh *ManifestHolder) getImageDigestFor(os string, arch string) (string, error) {
+func (mh *ManifestHolder) GetImageDigestFor(os string, arch string) (string, error) {
 	switch mh.Type {
 	case V2dockerManifestList:
 		for _, mfst := range mh.V2dockerManifestList.Manifests {
