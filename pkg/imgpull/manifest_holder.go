@@ -23,6 +23,15 @@ const (
 	Undefined
 )
 
+// MediaTypeFrom translatest ManifestType which is exported into a media type
+// so the standard media types can be exported from the package.
+var MediaTypeFrom = map[ManifestType]string{
+	V2dockerManifestList: "application/vnd.docker.distribution.manifest.list.v2+json",
+	V2dockerManifest:     "application/vnd.docker.distribution.manifest.v2+json",
+	V1ociIndex:           "application/vnd.oci.image.index.v1+json",
+	V1ociManifest:        "application/vnd.oci.image.manifest.v1+json",
+}
+
 // ManifestPullType indicates whether to pull an image manifest or an
 // image list manifest.
 type ManifestPullType int
@@ -87,10 +96,15 @@ func (mh *ManifestHolder) ToString() (string, error) {
 	return string(marshalled), err
 }
 
-// NewManifestHolder initializes and returns a ManifestHolder struct for the passed
+// NewManifestHolder is callable from outside the package with a string media type.
+func NewManifestHolder(mediaType string, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
+	return newManifestHolder(types.MediaType(mediaType), bytes, digest, imageUrl)
+}
+
+// newManifestHolder initializes and returns a ManifestHolder struct for the passed
 // manifest bytes. The manifest bytes will be deserialized into one of the four manifest
 // variables based on the 'mediaType' arg.
-func NewManifestHolder(mediaType types.MediaType, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
+func newManifestHolder(mediaType types.MediaType, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
 	mt := toManifestType(mediaType)
 	if mt == Undefined {
 		return ManifestHolder{}, fmt.Errorf("unknown manifest type %q", mediaType)
