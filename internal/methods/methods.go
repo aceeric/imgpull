@@ -176,6 +176,9 @@ func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
 	if err != nil {
 		return err
 	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("404 from server for blob digest %q", layer.Digest)
+	}
 	blobFile, err := os.Create(toFile)
 	if err != nil {
 		return err

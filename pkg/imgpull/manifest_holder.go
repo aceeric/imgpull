@@ -52,7 +52,11 @@ var manifestTypeToString = map[ManifestType]string{
 
 // ManifestHolder holds one of: v1 oci manifest list, v1 oci manifest, docker v2
 // manifest list, or docker v2 manifest. The original data from the upstream
-// is also in the struct.
+// is also in the 'Data' member of the struct. The 'Data' member is the authoritative
+// representation of the upstream data: if you compute a digest from it, the digest
+// will match the 'Digest' field (also from the upstream) The other fields like
+// 'V1ociIndex' are cosmetic and may not produce the same digest as the 'Data'
+// field.
 type ManifestHolder struct {
 	Type                 ManifestType          `json:"type"`
 	Digest               string                `json:"digest"`
@@ -122,23 +126,6 @@ func toManifestType(mediaType types.MediaType) ManifestType {
 	}
 }
 
-// Bytes marshals the JSON manifest of the holder into a byte array and returns it
-func (mh *ManifestHolder) Bytes() ([]byte, error) {
-	var err error
-	var marshalled []byte
-	switch mh.Type {
-	case V2dockerManifestList:
-		marshalled, err = json.Marshal(mh.V2dockerManifestList)
-	case V2dockerManifest:
-		marshalled, err = json.Marshal(mh.V2dockerManifest)
-	case V1ociIndex:
-		marshalled, err = json.Marshal(mh.V1ociIndex)
-	case V1ociManifest:
-		marshalled, err = json.Marshal(mh.V1ociManifest)
-	}
-	return marshalled, err
-}
-
 // MediaType returns the string media type of the receiver
 func (mh *ManifestHolder) MediaType() string {
 	switch mh.Type {
@@ -175,9 +162,15 @@ func (mh *ManifestHolder) unMarshalManifest(mt ManifestType, bytes []byte) error
 }
 
 // IsManifestList returns true of the manifest held by the ManifestHolder
-// receiver is a manifest list (not an image manifest.)
+// receiver is a manifest list.
 func (mh *ManifestHolder) IsManifestList() bool {
 	return mh.Type == V2dockerManifestList || mh.Type == V1ociIndex
+}
+
+// IsImageManifest returns true of the manifest held by the ManifestHolder
+// receiver is an image manifest.
+func (mh *ManifestHolder) IsImageManifest() bool {
+	return !mh.IsManifestList()
 }
 
 // Layers returns an array of 'Layer' for the manifest contained by the ManifestHolder

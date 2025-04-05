@@ -182,7 +182,7 @@ func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 		}
 	}
 	for _, layer := range mh.Layers() {
-		if rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))) != nil {
+		if err := rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
 			return tar.ImageTarball{}, err
 		}
 	}
