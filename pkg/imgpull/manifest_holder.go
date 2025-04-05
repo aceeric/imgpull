@@ -16,11 +16,11 @@ import (
 type ManifestType int
 
 const (
-	Undefined ManifestType = iota
-	V2dockerManifestList
+	V2dockerManifestList ManifestType = iota
 	V2dockerManifest
 	V1ociIndex
 	V1ociManifest
+	Undefined
 )
 
 // ManifestPullType indicates whether to pull an image manifest or an
@@ -87,10 +87,10 @@ func (mh *ManifestHolder) ToString() (string, error) {
 	return string(marshalled), err
 }
 
-// newManifestHolder initializes and returns a ManifestHolder struct for the passed
+// NewManifestHolder initializes and returns a ManifestHolder struct for the passed
 // manifest bytes. The manifest bytes will be deserialized into one of the four manifest
 // variables based on the 'mediaType' arg.
-func newManifestHolder(mediaType types.MediaType, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
+func NewManifestHolder(mediaType types.MediaType, bytes []byte, digest string, imageUrl string) (ManifestHolder, error) {
 	mt := toManifestType(mediaType)
 	if mt == Undefined {
 		return ManifestHolder{}, fmt.Errorf("unknown manifest type %q", mediaType)

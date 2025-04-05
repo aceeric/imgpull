@@ -75,7 +75,7 @@ func (p *puller) GetManifestByType(mpt ManifestPullType) (ManifestHolder, error)
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
+	mh, err := NewManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 	if err != nil {
 		return ManifestHolder{}, err
 	}
@@ -91,7 +91,7 @@ func (p *puller) GetManifestByType(mpt ManifestPullType) (ManifestHolder, error)
 		if err != nil {
 			return ManifestHolder{}, err
 		}
-		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.UrlWithDigest(digest))
+		mh, err = NewManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.UrlWithDigest(digest))
 		if err != nil {
 			return ManifestHolder{}, err
 		}
@@ -135,7 +135,7 @@ func (p *puller) GetManifest() (ManifestHolder, error) {
 	if err != nil {
 		return ManifestHolder{}, err
 	}
-	return newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
+	return NewManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 }
 
 func (p *puller) GetUrl() string {
@@ -163,7 +163,7 @@ func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
-	mh, err := newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
+	mh, err := NewManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.Url())
 	if err != nil {
 		return tar.ImageTarball{}, err
 	}
@@ -176,7 +176,7 @@ func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
-		mh, err = newManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.UrlWithDigest(digest))
+		mh, err = NewManifestHolder(mr.MediaType, mr.ManifestBytes, mr.ManifestDigest, rc.ImgRef.UrlWithDigest(digest))
 		if err != nil {
 			return tar.ImageTarball{}, err
 		}
