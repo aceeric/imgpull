@@ -227,6 +227,26 @@ func (mh *ManifestHolder) Layers() []types.Layer {
 	return layers
 }
 
+// ImageManifestDigests returns an array of the image manifest digests from the image list
+// manifest in the receiver. If called for a manifest holder wrapping an image manifest, then
+// an empty array is returned.
+func (mh *ManifestHolder) ImageManifestDigests() []string {
+	ims := []string{}
+	if !mh.IsImageManifest() {
+		switch mh.Type {
+		case V2dockerManifestList:
+			for _, m := range mh.V2dockerManifestList.Manifests {
+				ims = append(ims, m.Digest)
+			}
+		case V1ociIndex:
+			for _, m := range mh.V1ociIndex.Manifests {
+				ims = append(ims, m.Digest)
+			}
+		}
+	}
+	return ims
+}
+
 // GetImageDigestFor looks in the manifest list in the receiver for a manifest in the list
 // matching the passed OS and architecture and if found returns it. Otherwise an error is
 // returned.
