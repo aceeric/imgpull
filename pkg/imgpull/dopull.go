@@ -112,6 +112,9 @@ func (p *puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	if err := p.connect(); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(blobDir, 0755); err != nil {
+		return fmt.Errorf("unable to create directory %q, error: %q", blobDir, err)
+	}
 	rc := p.regCliFrom()
 	for _, layer := range mh.Layers() {
 		if err := rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
