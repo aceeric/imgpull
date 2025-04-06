@@ -29,6 +29,8 @@ type Puller interface {
 	// is returned in a 'ManifestHolder' which holds all four supported manifest types,
 	// only one of which will be populated.
 	GetManifest() (ManifestHolder, error)
+	// GetManifestByDigest is like GetManifest except uses the passed digest
+	GetManifestByDigest(digest string) (ManifestHolder, error)
 	// HeadManifest does a HEAD request for the image URL in the receiver. The
 	// 'ManifestDescriptor' returned to the caller contains the image digest,
 	// media type and manifest size, as provided by the upstream distribution
