@@ -127,11 +127,19 @@ func (p *puller) HeadManifest() (types.ManifestDescriptor, error) {
 }
 
 func (p *puller) GetManifest() (ManifestHolder, error) {
+	return p.internalGetManifest("")
+}
+
+func (p *puller) GetManifestByDigest(digest string) (ManifestHolder, error) {
+	return p.internalGetManifest(digest)
+}
+
+func (p *puller) internalGetManifest(digest string) (ManifestHolder, error) {
 	if err := p.connect(); err != nil {
 		return ManifestHolder{}, err
 	}
 	rc := p.regCliFrom()
-	mr, err := rc.V2Manifests("")
+	mr, err := rc.V2Manifests(digest)
 	if err != nil {
 		return ManifestHolder{}, err
 	}
