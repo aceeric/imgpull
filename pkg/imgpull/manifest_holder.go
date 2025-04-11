@@ -68,8 +68,8 @@ var manifestTypeToString = map[ManifestType]string{
 // field.
 //
 // The struct contains two fields that are not used by this library: Created and Pulled.
-// These are intended for library consumers who may want to track when a manifest
-// was created, or most recently pulled.
+// These are intended for library consumers to be able to track when a manifest was
+// created, or, most recently used.
 type ManifestHolder struct {
 	Type                 ManifestType          `json:"type"`
 	Digest               string                `json:"digest"`
@@ -79,8 +79,8 @@ type ManifestHolder struct {
 	V1ociManifest        v1oci.Manifest        `json:"v1.oci.manifest"`
 	V2dockerManifestList v2docker.ManifestList `json:"v2.docker.manifestList"`
 	V2dockerManifest     v2docker.Manifest     `json:"v2.docker.manifest"`
-	Created              string                `json:"Created"`
-	Pulled               string                `json:"Pulled"`
+	Created              string                `json:"created"`
+	Pulled               string                `json:"pulled"`
 }
 
 // ToString renders the manifest held by the receiver into JSON. Only the
