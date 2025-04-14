@@ -59,7 +59,7 @@ func (p *puller) PullTar(dest string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmpDir)
+	defer os.RemoveAll(tmpDir)
 	if itb, err := p.pull(tmpDir); err != nil {
 		return err
 	} else {
