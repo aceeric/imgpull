@@ -2,40 +2,50 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/aceeric/imgpull/pkg/imgpull"
 )
 
 func main() {
-	if cmdline, err := parseArgs(); err != nil {
+	cmdline, err := parseArgs()
+	if err != nil {
 		fmt.Println(err)
 		showUsageAndExit(nil)
-	} else if p, err := imgpull.NewPullerWith(pullerOptsFrom(cmdline)); err != nil {
+	}
+	puller, err := imgpull.NewPullerWith(pullerOptsFrom(cmdline))
+	if err == nil {
+		if cmdline.getVal(manifestOpt) != "" {
+			err = showManifest(puller, cmdline.getVal(manifestOpt))
+		} else {
+			err = pullTar(puller, cmdline.getVal(destOpt))
+		}
+	}
+	if err != nil {
 		fmt.Println(err)
-	} else if cmdline.getVal(manifestOpt) != "" {
-		showManifest(p, cmdline.getVal(manifestOpt))
-	} else {
-		pullTar(p, cmdline.getVal(destOpt))
+		os.Exit(1)
 	}
 }
 
-func showManifest(p imgpull.Puller, manifestType string) {
+func showManifest(puller imgpull.Puller, manifestType string) error {
 	mt := imgpull.ManifestPullTypeFrom[manifestType]
-	if mh, err := p.GetManifestByType(mt); err != nil {
-		fmt.Println(err)
+	if mh, err := puller.GetManifestByType(mt); err != nil {
+		return err
 	} else if manifest, err := mh.ToString(); err != nil {
-		fmt.Println(err)
+		return err
 	} else {
 		fmt.Printf("MANIFEST:\n%s\nMANIFEST DIGEST: %s\nIMAGE URL: %s\n", manifest, mh.Digest, mh.ImageUrl)
 	}
+	return nil
 }
 
-func pullTar(p imgpull.Puller, tarFile string) {
+func pullTar(puller imgpull.Puller, tarFile string) error {
 	start := time.Now()
-	if err := p.PullTar(tarFile); err != nil {
-		fmt.Println(err)
+	if err := puller.PullTar(tarFile); err != nil {
+		return err
 	} else {
-		fmt.Printf("image %q saved to %q in %s\n", p.GetUrl(), tarFile, time.Since(start))
+		fmt.Printf("image %q saved to %q in %s\n", puller.GetUrl(), tarFile, time.Since(start))
 	}
+	return nil
 }

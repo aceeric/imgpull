@@ -258,8 +258,8 @@ func (m *optMap) getVal(name optName) string {
 	return (*m)[name].Value
 }
 
-// showUsageAndExit prints usage instructions and exits with a zero
-// error code.
+// showUsageAndExit prints usage instructions and terminates the program
+// with a zero error code (will not return.)
 func showUsageAndExit(opts optMap) {
 	fmt.Println(usageText)
 	os.Exit(0)
