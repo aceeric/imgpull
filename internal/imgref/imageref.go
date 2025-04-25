@@ -46,6 +46,10 @@ type ImageRef struct {
 	// localhost:8080/docker.io/hello-world:latest then this is set to
 	// true, else it is false.
 	NsInPath bool
+	// addedOrg is true if the org was added by the NewImageRef function,
+	// as in the case when docker.io/hello-world:latest is requsted the
+	// org has be made "library".
+	addedOrg bool
 }
 
 // NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
@@ -69,6 +73,7 @@ func NewImageRef(url, scheme, namespace string) (ImageRef, error) {
 		ir.image = parts[1]
 		if ir.Registry == "docker.io" {
 			ir.org = "library"
+			ir.addedOrg = true
 		}
 	} else if len(parts) == 3 {
 		if strings.Contains(parts[1], ".") {
@@ -152,7 +157,11 @@ func (ir *ImageRef) makeUrl(sha string, withNs bool) string {
 	} else {
 		refToUse = ":" + ir.Ref
 	}
-	return fmt.Sprintf("%s/%s%s", regToUse, ir.Repository, refToUse)
+	repositoryToUse := ir.Repository
+	if ir.addedOrg {
+		repositoryToUse = ir.image
+	}
+	return fmt.Sprintf("%s/%s%s", regToUse, repositoryToUse, refToUse)
 }
 
 // ServerUrl handles the case where an image is pulled from docker.io but the package
