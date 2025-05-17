@@ -3,6 +3,7 @@ package imgpull
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/aceeric/imgpull/internal/imgref"
 	"github.com/aceeric/imgpull/internal/tar"
@@ -191,6 +192,17 @@ func (mh *ManifestHolder) IsManifestList() bool {
 // receiver is an image manifest.
 func (mh *ManifestHolder) IsImageManifest() bool {
 	return !mh.IsManifestList()
+}
+
+// IsLatest returns true if the manifest held by the ManifestHolder
+// receiver has tag "latest".
+func (mh *ManifestHolder) IsLatest() (bool, error) {
+	// NewImageRef will ignore scheme and namespace
+	if ir, err := imgref.NewImageRef(mh.ImageUrl, "", ""); err != nil {
+		return false, err
+	} else {
+		return strings.ToLower(ir.Ref) == "latest", nil
+	}
 }
 
 // Layers returns an array of 'Layer' for the manifest contained by the ManifestHolder
