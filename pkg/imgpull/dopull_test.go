@@ -55,7 +55,7 @@ func TestBasicCreds(t *testing.T) {
 	user := "foobar"
 	pass := "frobozz"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v2/" {
+		if r.URL.Path != "/v2/" && r.URL.Path != "/v2/hello-world/manifests/latest" {
 			t.Fail()
 		}
 		if r.Header.Get("Authorization") != "" {

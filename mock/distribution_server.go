@@ -104,32 +104,28 @@ func Server(params MockParams) (*httptest.Server, string) {
 		}
 	}
 
+	// as of > v1.12.0 HEADing the /v2/hello-world/manifests/latest endpoint initiates
+	// authentication if the mock server is configured for auth
 	gmtTimeLoc := time.FixedZone("GMT", 0)
 	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, hasAuthHeader := r.Header["Authorization"]
 		p := strings.Replace(r.URL.Path, "/library/", "/", 1)
-		if p == "/v2/" {
-			if params.Auth == NONE {
-				w.WriteHeader(http.StatusOK)
-			} else {
-				if r.Header.Get("Authorization") != "" {
-					// just believe the client
-					w.WriteHeader(http.StatusOK)
-				} else {
-					body := []byte(`{"errors":[{"code":"UNAUTHORIZED","message":"authentication required","detail":null}]}`)
-					authUrl := `Basic realm="%s://%s"`
-					if params.Auth == BEARER {
-						authUrl = `Bearer realm="%s://%s/v2/auth",service="registry.docker.io"`
-					}
-					authHdr := fmt.Sprintf(authUrl, params.Scheme, r.Host)
-					w.Header().Set("Content-Length", strconv.Itoa(len(body)))
-					w.Header().Set("Content-Type", "application/json")
-					w.Header().Set("Date", time.Now().In(gmtTimeLoc).Format(http.TimeFormat))
-					w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
-					w.Header().Set("Www-Authenticate", authHdr)
-					w.WriteHeader(http.StatusUnauthorized)
-					w.Write(body)
-				}
+		if p == "/v2/hello-world/manifests/latest" && r.Method == http.MethodHead && !hasAuthHeader && params.Auth != NONE {
+			body := []byte(`{"errors":[{"code":"UNAUTHORIZED","message":"authentication required","detail":null}]}`)
+			authUrl := `Basic realm="%s://%s"`
+			if params.Auth == BEARER {
+				authUrl = `Bearer realm="%s://%s/v2/auth",service="registry.docker.io"`
 			}
+			authHdr := fmt.Sprintf(authUrl, params.Scheme, r.Host)
+			w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Date", time.Now().In(gmtTimeLoc).Format(http.TimeFormat))
+			w.Header().Set("Docker-Distribution-Api-Version", "registry/2.0")
+			w.Header().Set("Www-Authenticate", authHdr)
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write(body)
+		} else if p == "/v2/" || p == "/v2" {
+			w.WriteHeader(http.StatusOK)
 		} else if p == "/v2/auth" {
 			if params.Auth != BEARER {
 				w.WriteHeader(http.StatusUnauthorized)

@@ -20,7 +20,7 @@ import (
 	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
-// Tests bearer auth using the 'v2/' endpoint
+// Tests bearer auth
 func TestV2(t *testing.T) {
 	server, url := mock.Server(mock.NewMockParams(mock.BEARER, mock.NOTLS, mock.CertSetup{}))
 	defer server.Close()
@@ -28,7 +28,7 @@ func TestV2(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	status, auth, err := rc.V2()
+	status, auth, err := rc.V2ManifestsAuth()
 	if err != nil {
 		t.Fail()
 	}
@@ -192,7 +192,7 @@ func TestGetAuthHdr(t *testing.T) {
 	if err != nil {
 		t.Fail()
 	}
-	imgUrl := fmt.Sprintf("http://%s/v2/", url)
+	imgUrl := fmt.Sprintf("http://%s/v2/hello-world/manifests/latest", url)
 	resp, err := rc.Client.Head(imgUrl)
 	if resp != nil {
 		defer resp.Body.Close()
@@ -279,6 +279,7 @@ func TestV2ManifestHead(t *testing.T) {
 			server, url := mock.Server(mp)
 			defer server.Close()
 			rc, err := newRegClient(image, url, "")
+			rc.AuthHdr = AuthHeader{Key: "Authorization", Value: "Bearer: FROBOZZ"}
 			if err != nil {
 				t.Fail()
 			}

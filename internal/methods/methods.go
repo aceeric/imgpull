@@ -68,12 +68,11 @@ func allManifestTypesStr() string {
 	return toReturn
 }
 
-// V2 calls the 'v2' endpoint which typically either returns OK or unauthorized. It is the first
-// API call made to an OCI Distribution server to initiate an image pull. Returns the http
-// status code, an array of auth headers (which could be empty), and an error if one occurred
-// or nil.
-func (rc RegClient) V2() (int, []string, error) {
-	url := fmt.Sprintf("%s/v2/", rc.ImgRef.ServerUrl())
+// V2ManifestsAuth does a HEAD request for the manifest in the receiver, only looking for
+// OK or unauthorized. Returns the http status code, an array of auth headers (which could
+// be empty), and an error if one occurred or nil.
+func (rc RegClient) V2ManifestsAuth() (int, []string, error) {
+	url := rc.makeManifestUrl("")
 	resp, err := rc.Client.Head(url)
 	if resp != nil {
 		defer resp.Body.Close()
@@ -260,7 +259,7 @@ func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
 		return types.ManifestDescriptor{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return types.ManifestDescriptor{}, fmt.Errorf("head manifests for %q failed with status %q", url, resp.StatusCode)
+		return types.ManifestDescriptor{}, fmt.Errorf("head manifests for %q failed with status %d", url, resp.StatusCode)
 	}
 	if resp != nil {
 		defer resp.Body.Close()

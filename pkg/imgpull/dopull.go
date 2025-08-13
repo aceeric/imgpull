@@ -215,7 +215,7 @@ func (p *puller) connect() error {
 	if p.Connected {
 		return nil
 	}
-	status, auth, err := p.regCliFrom().V2()
+	status, auth, err := p.regCliFrom().V2ManifestsAuth()
 	if err != nil {
 		return err
 	}
