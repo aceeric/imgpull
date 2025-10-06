@@ -1,5 +1,10 @@
 # Change Log
 
+## 06-Oct-2025
+Tag: `v1.12.3`
+
+1. Fix bearer authentication
+
 ## 27-Sep-2025
 Tag: `v1.12.2`
 
