@@ -221,7 +221,7 @@ func TestV2Bearer(t *testing.T) {
 		Realm:   fmt.Sprintf("http://%s/v2/auth", url),
 		Service: url,
 	}
-	token, err := rc.V2Auth(ba)
+	token, err := rc.V2Auth(ba, "")
 	if err != nil {
 		t.Fail()
 	}

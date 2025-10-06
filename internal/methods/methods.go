@@ -108,9 +108,12 @@ func (rc RegClient) V2Basic(encoded string) (types.BasicAuth, error) {
 // realm and service. These are used to build the auth URL. The realm might be different
 // than the server that we have been requested to pull from.  If successful, the
 // bearer token is returned to the caller for use on subsequent calls.
-func (rc RegClient) V2Auth(ba types.BearerAuth) (types.BearerToken, error) {
+func (rc RegClient) V2Auth(ba types.BearerAuth, encoded string) (types.BearerToken, error) {
 	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, rc.ImgRef.Repository, ba.Service)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	if encoded != "" {
+		req.Header.Set("Authorization", "Basic "+encoded)
+	}
 	resp, err := rc.Client.Do(req)
 	if err != nil {
 		return types.BearerToken{}, err

@@ -244,7 +244,12 @@ func (p *puller) authenticate(auth []string) error {
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			ba := parseBearer(hdr)
-			bt, err := rc.V2Auth(ba)
+			encoded := ""
+			if p.Opts.Username != "" && p.Opts.Password != "" {
+				delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
+				encoded = base64.StdEncoding.EncodeToString([]byte(delimited))
+			}
+			bt, err := rc.V2Auth(ba, encoded)
 			if err != nil {
 				return err
 			}
@@ -289,21 +294,25 @@ func (p *puller) regCliFrom() methods.RegClient {
 // parseBearer parses the passed auth header which the caller should ensure is a bearer
 // type "www-authenticate" header like:
 //
-//	Bearer realm="https://auth.docker.io/token",service="registry.docker.io"
+//		Bearer realm="https://auth.docker.io/token",service="registry.docker.io"
+//	    Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:aceeric/ociregistry:pull"
 //
 // The function returns the parsed result in a 'BearerAuth' struct.
 func parseBearer(authHdr string) types.BearerAuth {
 	ba := types.BearerAuth{}
-	parts := []string{"realm", "service"}
+	parts := []string{"realm", "service", "scope"}
 	expr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,]*)"{1}`
 	for _, part := range parts {
 		srch := fmt.Sprintf(expr, part)
 		m := regexp.MustCompile(srch)
 		matches := m.FindStringSubmatch(authHdr)
 		if len(matches) == 2 {
-			if part == "realm" {
+			switch part {
+			case "realm":
 				ba.Realm = strings.ReplaceAll(matches[1], "\"", "")
-			} else {
+			case "scope":
+				ba.Scope = strings.ReplaceAll(matches[1], "\"", "")
+			default:
 				ba.Service = strings.ReplaceAll(matches[1], "\"", "")
 			}
 		}

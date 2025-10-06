@@ -25,11 +25,13 @@ import (
 )
 
 // test auth header parsing
+// ""
 func TestAuthParse(t *testing.T) {
 	authHdrTests := []struct {
 		hdr     string
 		realm   string
 		service string
+		scope   string
 	}{
 		{
 			hdr:     `Bearer realm="https://quay.io/v2/auth",service="quay.io"`,
@@ -40,11 +42,16 @@ func TestAuthParse(t *testing.T) {
 			hdr:     `Bearer realm="https://auth.docker.io/token",service="registry.docker.io"`,
 			realm:   "https://auth.docker.io/token",
 			service: "registry.docker.io",
+		}, {
+			hdr:     `Bearer realm="https://ghcr.io/token",service="ghcr.io",scope="repository:aceeric/ociregistry:pull"`,
+			realm:   "https://ghcr.io/token",
+			service: "ghcr.io",
+			scope:   "repository:aceeric/ociregistry:pull",
 		},
 	}
 	for _, authHdrTest := range authHdrTests {
 		ba := parseBearer(authHdrTest.hdr)
-		if ba.Realm != authHdrTest.realm || ba.Service != authHdrTest.service {
+		if ba.Realm != authHdrTest.realm || ba.Service != authHdrTest.service || ba.Scope != authHdrTest.scope {
 			t.Fail()
 		}
 	}

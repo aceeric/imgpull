@@ -52,11 +52,12 @@ func NewLayer(mediaType MediaType, digest string, size int64) Layer {
 	}
 }
 
-// BearerAuth has the two parts of a bearer auth header that we need, in
+// BearerAuth has the parts of a bearer auth header that we need, in
 // order to request a bearer token from an OCI distribution server.
 type BearerAuth struct {
 	Realm   string
 	Service string
+	Scope   string
 }
 
 // BearerToken holds the bearer token value.
