@@ -1,5 +1,11 @@
 # Change Log
 
+## 14-Nov-2025
+Tag: `v1.12.4`
+
+1. Don't reuse the default http.Transport, clone instead
+2. Ensure resp.Body().Close() **always** called
+
 ## 06-Oct-2025
 Tag: `v1.12.3`
 
