@@ -61,13 +61,13 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 	if ir, err := imgref.NewImageRef(o.Url, o.Scheme, o.Namespace); err != nil {
 		return &puller{}, err
 	} else {
-		c := &http.Client{}
+		c := &http.Client{
+			Transport: http.DefaultTransport.(*http.Transport).Clone(),
+		}
 		if cfg, err := o.configureTls(); err != nil {
 			return &puller{}, err
 		} else if cfg != nil {
-			c.Transport = &http.Transport{
-				TLSClientConfig: cfg,
-			}
+			c.Transport.(*http.Transport).TLSClientConfig = cfg
 		}
 		return &puller{
 			ImgRef: ir,

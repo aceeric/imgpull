@@ -46,6 +46,8 @@ type Puller interface {
 	GetUrl() string
 	// GetOpts returns puller options
 	GetOpts() PullerOpts
+	// Close closes the puller
+	Close()
 }
 
 // HTTP status codes that we will interpret as un-authorized
@@ -157,6 +159,12 @@ func (p *puller) GetUrl() string {
 
 func (p *puller) GetOpts() PullerOpts {
 	return p.Opts
+}
+
+func (p *puller) Close() {
+	if p.Client != nil {
+		p.Client.CloseIdleConnections()
+	}
 }
 
 // pull pulls the image specified in the receiver, saving blobs to the passed 'blobDir'.
