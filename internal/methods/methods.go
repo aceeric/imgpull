@@ -115,14 +115,14 @@ func (rc RegClient) V2Auth(ba types.BearerAuth, encoded string) (types.BearerTok
 		req.Header.Set("Authorization", "Basic "+encoded)
 	}
 	resp, err := rc.Client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return types.BearerToken{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return types.BearerToken{}, fmt.Errorf("auth attempt failed. Status: %d", resp.StatusCode)
-	}
-	if resp != nil {
-		defer resp.Body.Close()
 	}
 	var token types.BearerToken
 	decoder := json.NewDecoder(resp.Body)
@@ -218,14 +218,14 @@ func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
 	req.Header.Set("Accept", allManifestTypesStr())
 	rc.setAuthHdr(req)
 	resp, err := rc.Client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return ManifestGetResult{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return ManifestGetResult{}, fmt.Errorf("get manifests attempt failed. Status: %d", resp.StatusCode)
-	}
-	if resp != nil {
-		defer resp.Body.Close()
 	}
 	mediaType := resp.Header.Get("Content-Type")
 	manifestBytes, err := io.ReadAll(io.LimitReader(resp.Body, maxManifestBytes))
@@ -258,14 +258,14 @@ func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
 	req.Header.Set("Accept", allManifestTypesStr())
 	rc.setAuthHdr(req)
 	resp, err := rc.Client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return types.ManifestDescriptor{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return types.ManifestDescriptor{}, fmt.Errorf("head manifests for %q failed with status %d", url, resp.StatusCode)
-	}
-	if resp != nil {
-		defer resp.Body.Close()
 	}
 	mediaType := resp.Header.Get("Content-Type")
 	if mediaType == "" {
