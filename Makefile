@@ -1,4 +1,4 @@
-CMD_VERSION := v1.12.4
+CMD_VERSION := v1.12.5
 DATETIME    := $(shell date -u +%Y-%m-%dT%T.%2NZ)
 ROOT        := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 

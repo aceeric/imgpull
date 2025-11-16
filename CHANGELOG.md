@@ -1,5 +1,10 @@
 # Change Log
 
+## 13-Nov-2025
+Tag: `v1.12.5`
+
+1. Reduce blob download mem buffer size
+
 ## 14-Nov-2025
 Tag: `v1.12.4`
 
