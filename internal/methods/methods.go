@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	mebibytes        = 1024 * 1024
-	maxManifestBytes = 100 * mebibytes
-	maxBlobBytes     = 100 * mebibytes
+	maxManifestBytes = 25 * 1024
+	maxBlobBytes     = 10 * 1024 * 1024
 )
 
 // AuthHeader is a key/value struct that supports creating and setting an auth
