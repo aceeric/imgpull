@@ -1,5 +1,10 @@
 # Change Log
 
+## 30-Nov-2025
+Tag: `v1.12.6`
+
+1. Support `MaxIdleConnsPerHost`
+
 ## 13-Nov-2025
 Tag: `v1.12.5`
 

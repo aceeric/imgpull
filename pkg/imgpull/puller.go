@@ -64,6 +64,9 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 		c := &http.Client{
 			Transport: http.DefaultTransport.(*http.Transport).Clone(),
 		}
+		if o.MaxIdleConnsPerHost != 0 {
+			c.Transport.(*http.Transport).MaxIdleConnsPerHost = o.MaxIdleConnsPerHost
+		}
 		if cfg, err := o.configureTls(); err != nil {
 			return &puller{}, err
 		} else if cfg != nil {

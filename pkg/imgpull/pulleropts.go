@@ -37,6 +37,8 @@ type PullerOpts struct {
 	TlsCfg *tls.Config
 	// Insecure skips server cert validation for the upstream registry (https-only.)
 	Insecure bool
+	// MaxIdleConnsPerHost is the same as http.Transport
+	MaxIdleConnsPerHost int
 	// Namespace supports pull-through and mirroring, i.e. pull 'localhost:5000/hello-world:latest'
 	// with Namespace 'docker.io' to pull from localhost if localhost is a mirror
 	// or a pull-through registry.
