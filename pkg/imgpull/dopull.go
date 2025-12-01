@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/aceeric/imgpull/internal/imgref"
 	"github.com/aceeric/imgpull/internal/methods"
 	"github.com/aceeric/imgpull/internal/tar"
 	"github.com/aceeric/imgpull/internal/util"
@@ -44,6 +45,8 @@ type Puller interface {
 	PullTar(dest string) error
 	// GetUrl returns the image ref from the receiver
 	GetUrl() string
+	// SetUrl supports reusing a puller with a different image ref.
+	SetUrl(url string) error
 	// GetOpts returns puller options
 	GetOpts() PullerOpts
 	// Close closes the puller
@@ -155,6 +158,17 @@ func (p *puller) internalGetManifest(digest string) (ManifestHolder, error) {
 
 func (p *puller) GetUrl() string {
 	return p.ImgRef.Url()
+}
+
+func (p *puller) SetUrl(url string) error {
+	if ir, err := imgref.NewImageRef(url, p.Opts.Scheme, p.Opts.Namespace); err != nil {
+		return err
+	} else if p.ImgRef.Registry != ir.Registry {
+		return fmt.Errorf("incoming registry %s must match existing %s", ir.Registry, p.ImgRef.Registry)
+	} else {
+		p.ImgRef = ir
+	}
+	return nil
 }
 
 func (p *puller) GetOpts() PullerOpts {
