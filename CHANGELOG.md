@@ -1,5 +1,10 @@
 # Change Log
 
+## 01-Dec-2025
+Tag: `v1.12.7`
+
+1. Support `SetURL` on the `puller`.
+
 ## 30-Nov-2025
 Tag: `v1.12.6`
 
