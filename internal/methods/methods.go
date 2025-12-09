@@ -108,7 +108,7 @@ func (rc RegClient) V2Basic(encoded string) (types.BasicAuth, error) {
 // than the server that we have been requested to pull from.  If successful, the
 // bearer token is returned to the caller for use on subsequent calls.
 func (rc RegClient) V2Auth(ba types.BearerAuth, encoded string) (types.BearerToken, error) {
-	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, rc.ImgRef.Repository, ba.Service)
+	url := fmt.Sprintf("%s?scope=repository:%s:pull&service=%s", ba.Realm, rc.ImgRef.Repository(), ba.Service)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	if encoded != "" {
 		req.Header.Set("Authorization", "Basic "+encoded)
@@ -163,10 +163,10 @@ func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
 // passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
 func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
 	url := ""
-	if rc.ImgRef.NsInPath {
-		url = fmt.Sprintf("%s/v2/%s/%s/blobs/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace, rc.ImgRef.Repository, layer.Digest)
+	if rc.ImgRef.NsInPath() {
+		url = fmt.Sprintf("%s/v2/%s/%s/blobs/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace(), rc.ImgRef.Repository(), layer.Digest)
 	} else {
-		url = fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, layer.Digest, rc.nsQueryParm())
+		url = fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository(), layer.Digest, rc.nsQueryParm())
 	}
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	rc.setAuthHdr(req)
@@ -285,14 +285,14 @@ func (rc RegClient) V2ManifestsHead() (types.ManifestDescriptor, error) {
 // returns a URL taking into account whether the image ref in the receiver is namespaced, and
 // whether the namespace is path-based or parameter based.
 func (rc RegClient) makeManifestUrl(sha string) string {
-	ref := rc.ImgRef.Ref
+	ref := rc.ImgRef.Ref()
 	if sha != "" {
 		ref = sha
 	}
-	if rc.ImgRef.NsInPath {
-		return fmt.Sprintf("%s/v2/%s/%s/manifests/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace, rc.ImgRef.Repository, ref)
+	if rc.ImgRef.NsInPath() {
+		return fmt.Sprintf("%s/v2/%s/%s/manifests/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace(), rc.ImgRef.Repository(), ref)
 	} else {
-		return fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository, ref, rc.nsQueryParm())
+		return fmt.Sprintf("%s/v2/%s/manifests/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository(), ref, rc.nsQueryParm())
 	}
 }
 
@@ -309,8 +309,8 @@ func (rc RegClient) setAuthHdr(req *http.Request) {
 // is the receiver's namespace. If no namespace is configured, then the function
 // returns the empty string.
 func (rc RegClient) nsQueryParm() string {
-	if rc.ImgRef.Namespace != "" {
-		return "?ns=" + rc.ImgRef.Namespace
+	if rc.ImgRef.Namespace() != "" {
+		return "?ns=" + rc.ImgRef.Namespace()
 	} else {
 		return ""
 	}

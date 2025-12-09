@@ -201,7 +201,7 @@ func (mh *ManifestHolder) IsLatest() (bool, error) {
 	if ir, err := imgref.NewImageRef(mh.ImageUrl, "", ""); err != nil {
 		return false, err
 	} else {
-		return strings.ToLower(ir.Ref) == "latest", nil
+		return strings.ToLower(ir.Ref()) == "latest", nil
 	}
 }
 
