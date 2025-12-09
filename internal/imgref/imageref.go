@@ -2,6 +2,8 @@ package imgref
 
 import (
 	"fmt"
+	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/aceeric/imgpull/internal/util"
@@ -11,113 +13,118 @@ import (
 type imgPullType int
 
 const (
+	// Undefined pull type
+	undefinedPullType imgPullType = iota
 	// Pull by tag
-	byTag imgPullType = iota
+	byTag
 	// Pull by digest
 	byDigest
 )
 
 // ImageRef has the components of an image reference.
 type ImageRef struct {
-	// e.g.: foo.io/bar/baz:v1.2.3
-	raw string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'pullType' is 'byTag'
+	// if input is foo.io/bar/baz:v1.2.3 then 'registry' is 'foo.io'
+	registry string
+	// if input is foo.io/bar/baz:v1.2.3 then 'pullType' is 'byTag'
 	pullType imgPullType
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Registry' is 'foo.io'
-	Registry string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'server' is 'foo.io'
+	// if input is foo.io/bar/baz:v1.2.3 then 'server' is 'foo.io'
 	server string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Repository' is 'bar/baz'
-	Repository string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'org' is 'bar'
-	org string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'image' is 'baz'
-	image string
-	// if 'Raw' is foo.io/bar/baz:v1.2.3 then 'Ref' is 'v1.2.3'
-	Ref string
+	// if input is foo.io/bar/baz:v1.2.3 then 'repository' is 'bar/baz'
+	repository string
+	// if input is foo.io/bar/baz:v1.2.3 then 'ref' is 'v1.2.3'
+	ref string
 	// 'http' or 'https'
 	scheme string
-	// Namespace supports pull-through and mirroring, i.e. pull
-	// 'localhost:5000/hello-world:latest' with Namespace 'docker.io' to
+	// namespace supports pull-through and mirroring, i.e. pull
+	// 'localhost:5000/hello-world:latest' with namespace 'docker.io' to
 	// pull from localhost if localhost is a mirror or a pull-through
 	// registry.
-	Namespace string
+	namespace string
 	// if the url was provided with the namespace in the path like
 	// localhost:8080/docker.io/hello-world:latest then this is set to
 	// true, else it is false.
-	NsInPath bool
-	// addedOrg is true if the org was added by the NewImageRef function,
-	// as in the case when docker.io/hello-world:latest is requsted the
-	// org has be made "library".
-	addedOrg bool
+	nsInPath bool
+	// like when docker.io/hello-world is requested then have
+	// to talk to docker api with .../library/hello-world/...
+	library bool
 }
 
-// NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest,
-// or docker.io/library/hello-world@sha256:...) into an 'imageRef' struct. The url
-// MUST begin with a registry hostname (e.g. quay.io or localhost:8080) - it is not
-// (and cannot be) inferred.
+var (
+	digestRe   = regexp.MustCompile(`(.*)@(sha256:[a-f0-9]{64})\b`)
+	tagRe      = regexp.MustCompile(`(.*):(.*)\b`)
+	dockerRegs = []string{"docker.io", "index.docker.io"}
+)
+
+// NewImageRef parses the passed image url (e.g. docker.io/hello-world:latest) into
+// an 'imageRef' struct. The url MUST begin with a registry hostname (e.g. quay.io or
+// localhost:8080) - it is not (and cannot be) inferred.
 func NewImageRef(url, scheme, namespace string) (ImageRef, error) {
 	ir := ImageRef{
-		raw:       strings.ToLower(url),
-		pullType:  byTag,
-		scheme:    strings.ToLower(scheme),
-		Namespace: namespace,
+		scheme:    scheme,
+		namespace: namespace,
 	}
-	parts := strings.Split(ir.raw, "/")
-	ir.Registry = parts[0]
-	ir.server = ir.Registry
-	if ir.Registry == "docker.io" {
+	before, after, found := strings.Cut(url, "/")
+	if !found || after == "" {
+		return ImageRef{}, fmt.Errorf("unable to parse image url %q (at least two segments required)", url)
+	}
+	ir.registry = before
+	ir.server = ir.registry
+	if ir.server == "docker.io" {
 		ir.server = "index.docker.io"
 	}
-	if len(parts) == 2 {
-		ir.image = parts[1]
-		if ir.Registry == "docker.io" {
-			ir.org = "library"
-			ir.addedOrg = true
-		}
-	} else if len(parts) == 3 {
-		if strings.Contains(parts[1], ".") {
-			ir.Namespace = parts[1]
-			ir.NsInPath = true
-			ir.image = parts[2]
-		} else {
-			ir.org = parts[1]
-			ir.image = parts[2]
-		}
-	} else if len(parts) == 4 && strings.Contains(parts[1], ".") {
-		ir.Namespace = parts[1]
-		ir.NsInPath = true
-		ir.org = parts[2]
-		ir.image = parts[3]
-	} else {
-		return ImageRef{}, fmt.Errorf("unable to parse image url %q", ir.raw)
+	// check for in-path namespace
+	ns, remainder, found := strings.Cut(after, "/")
+	if found && strings.Contains(ns, ".") {
+		ir.namespace = ns
+		after = remainder
+		ir.nsInPath = true
 	}
-	ref_separators := []struct {
-		separator string
-		pt        imgPullType
-	}{
-		{separator: "@", pt: byDigest},
-		{separator: ":", pt: byTag},
+	remainder, ref, pullType := parseAfterReg(after)
+	ir.pullType = pullType
+	ir.ref = ref
+	ir.repository = remainder
+	if strings.Contains(ir.repository, ".") {
+		return ImageRef{}, fmt.Errorf("unable to parse image url %q (period in repository not allowed)", url)
+
 	}
-	// split image and tag or digest
-	for _, rs := range ref_separators {
-		if strings.Contains(ir.image, rs.separator) {
-			imgParts := strings.Split(ir.image, rs.separator)
-			ir.image = imgParts[0]
-			ir.Ref = imgParts[1]
-			ir.pullType = rs.pt
-			break
-		}
-	}
-	if ir.org == "" {
-		ir.Repository = ir.image
-	} else {
-		ir.Repository = fmt.Sprintf("%s/%s", ir.org, ir.image)
-	}
-	if ir.image == "" {
-		return ImageRef{}, fmt.Errorf("unable to parse image url: %q", url)
+	_, _, found = strings.Cut(ir.repository, "/")
+	if !found && slices.Contains(dockerRegs, ir.server) {
+		// pulling from dockerhub without bare repo like "hello-world" and
+		// without "library/" in the repository name
+		ir.library = true
 	}
 	return ir, nil
+}
+
+// Repository  returns the image url as it is valid to use in upstream API calls.
+// In all cases except pulling from docker.io the function simply returns the
+// repository. But if docker.io AND the incoming url did not have "library" in it
+// then its return with "library/" prepended.
+func (ir *ImageRef) Repository() string {
+	if ir.library {
+		return strings.Join([]string{"library", ir.repository}, "/")
+	}
+	return ir.repository
+}
+
+// Namespace gets the namespace.
+func (ir *ImageRef) Namespace() string {
+	return ir.namespace
+}
+
+// Namespace gets the namespace.
+func (ir *ImageRef) Ref() string {
+	return ir.ref
+}
+
+// Namespace gets the namespace.
+func (ir *ImageRef) Registry() string {
+	return ir.registry
+}
+
+// Namespace gets the namespace.
+func (ir *ImageRef) NsInPath() bool {
+	return ir.nsInPath
 }
 
 // Url returns the image url in the receiver exactly as represented in
@@ -142,28 +149,6 @@ func (ir *ImageRef) UrlWithDigest(digest string) string {
 	return ir.makeUrl(digest, false)
 }
 
-// makeUrl does the actual work for 'ImageUrl', 'UrlWithNs', and
-// 'UrlWithDigest'
-func (ir *ImageRef) makeUrl(sha string, withNs bool) string {
-	regToUse := ir.Registry
-	if withNs && ir.Namespace != "" {
-		regToUse = ir.Namespace
-	}
-	var refToUse string
-	if strings.HasPrefix(ir.Ref, "sha256:") {
-		refToUse = "@" + ir.Ref
-	} else if sha != "" {
-		refToUse = "@sha256:" + util.DigestFrom(sha)
-	} else {
-		refToUse = ":" + ir.Ref
-	}
-	repositoryToUse := ir.Repository
-	if ir.addedOrg {
-		repositoryToUse = ir.image
-	}
-	return fmt.Sprintf("%s/%s%s", regToUse, repositoryToUse, refToUse)
-}
-
 // ServerUrl handles the case where an image is pulled from docker.io but the package
 // has to access the DockerHub API on host index.docker.io so the receiver would have
 // a 'Registry' value of docker.io and a 'Server' value of index.docker.io. This function
@@ -171,4 +156,33 @@ func (ir *ImageRef) makeUrl(sha string, withNs bool) string {
 // DockerHub.
 func (ir *ImageRef) ServerUrl() string {
 	return fmt.Sprintf("%s://%s", ir.scheme, ir.server)
+}
+
+// parseAfterReg tries to parse the passed string as having either a digest reference or
+// a tag reference. If neither then it is treated as by tag with tag "latest".
+func parseAfterReg(urlPart string) (string, string, imgPullType) {
+	if result := digestRe.FindStringSubmatch(urlPart); len(result) == 3 {
+		return result[1], result[2], byDigest
+	} else if result := tagRe.FindStringSubmatch(urlPart); len(result) == 3 {
+		return result[1], result[2], byTag
+	}
+	return urlPart, "latest", byTag
+}
+
+// makeUrl does the actual work for 'ImageUrl', 'UrlWithNs', and
+// 'UrlWithDigest'
+func (ir *ImageRef) makeUrl(sha string, withNs bool) string {
+	regToUse := ir.registry
+	if withNs && ir.namespace != "" {
+		regToUse = ir.namespace
+	}
+	var refToUse string
+	if strings.HasPrefix(ir.ref, "sha256:") {
+		refToUse = "@" + ir.ref
+	} else if sha != "" {
+		refToUse = "@sha256:" + util.DigestFrom(sha)
+	} else {
+		refToUse = ":" + ir.ref
+	}
+	return fmt.Sprintf("%s/%s%s", regToUse, ir.repository, refToUse)
 }

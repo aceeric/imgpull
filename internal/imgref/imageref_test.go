@@ -1,84 +1,74 @@
 package imgref
 
 import (
+	"reflect"
 	"testing"
 )
 
-type parsetest struct {
-	url         string
-	shouldParse bool
-	parsedUrl   string
+type testCase struct {
+	num       int
+	input     string
+	scheme    string
+	namespace string
+	shouldErr bool
+	expected  ImageRef
 }
 
-// this test shows a current weakness which is that it's not possible
-// to validate these URLs in all cases because the code can't know
-// if the leftmost component which is supposed to be a host (such as
-// docker.io) is actually a host.
-func TestPRs(t *testing.T) {
-	urls := []parsetest{
-		{"foo.io/bar/baz:v1.2.3", true, "foo.io/bar/baz:v1.2.3"},
-		{"foo.io/baz:v1.2.3", true, "foo.io/baz:v1.2.3"},
-		{"foo.io/bar/baz@sha256:123", true, "foo.io/bar/baz@sha256:123"},
-		{"foo.io/baz@sha256:123", true, "foo.io/baz@sha256:123"},
-		{"docker.io/baz:v8.8.8", true, "docker.io/baz:v8.8.8"},
-		{"docker.io/baz@sha256:123", true, "docker.io/baz@sha256:123"},
-		{"docker.io/library/baz@sha256:123", true, "docker.io/library/baz@sha256:123"},
-		{"docker.io/bar/baz:v8.8.8", true, "docker.io/bar/baz:v8.8.8"},
-		{"docker.io/bar/baz@sha256:123", true, "docker.io/bar/baz@sha256:123"},
-		{"bar/baz:v1.2.3", true, "bar/baz:v1.2.3"},
-		{"baz:v1.2.3", false, ""},
-		{"bar/baz@sha256:123", true, "bar/baz@sha256:123"},
-		{"baz@sha256:123", false, ""},
-		{"foo.io/bar/baz/frobozz:v1.2.3", false, ""},
-		// in this case bar.io is the namespace so it is stripped
-		{"localhost:8080/docker.io/foo/bar:v1.2.3", true, "localhost:8080/foo/bar:v1.2.3"},
-	}
-	for _, url := range urls {
-		ir, err := NewImageRef(url.url, "https", "")
-		if url.shouldParse && err != nil {
-			t.Fail()
-		} else if !url.shouldParse && err == nil {
-			t.Fail()
-		} else if url.shouldParse && ir.Url() != url.parsedUrl {
-			t.Fail()
-		}
-	}
+// the digest matcher in the url parser needs a 64-position digest
+const sha = "1234567890123456789012345678901234567890123456789012345678901234"
+
+var testCases = []testCase{
+	{1, "docker.io/foo", "https", "", false, ImageRef{registry: "docker.io", pullType: byTag, server: "index.docker.io", repository: "foo", ref: "latest", scheme: "https", namespace: "", nsInPath: false, library: true}},
+	{2, "docker.io/foo:latest", "https", "", false, ImageRef{registry: "docker.io", pullType: byTag, server: "index.docker.io", repository: "foo", ref: "latest", scheme: "https", namespace: "", nsInPath: false, library: true}},
+	{3, "docker.io:5000/foo/bar", "https", "", false, ImageRef{registry: "docker.io:5000", pullType: byTag, server: "docker.io:5000", repository: "foo/bar", ref: "latest", scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{4, "docker.io:5000/foo/bar:latest", "https", "", false, ImageRef{registry: "docker.io:5000", pullType: byTag, server: "docker.io:5000", repository: "foo/bar", ref: "latest", scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{5, "docker.io:5000/foo/bar/baz", "https", "", false, ImageRef{registry: "docker.io:5000", pullType: byTag, server: "docker.io:5000", repository: "foo/bar/baz", ref: "latest", scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{6, "docker.io:5000/foo/bar/baz:latest", "https", "", false, ImageRef{registry: "docker.io:5000", pullType: byTag, server: "docker.io:5000", repository: "foo/bar/baz", ref: "latest", scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{7, "docker.io/foo:v1.2.3", "http", "", false, ImageRef{registry: "docker.io", pullType: byTag, server: "index.docker.io", repository: "foo", ref: "v1.2.3", scheme: "http", namespace: "", nsInPath: false, library: true}},
+	{8, "docker.io/foo/bar:v1.2.3", "https", "", false, ImageRef{registry: "docker.io", pullType: byTag, server: "index.docker.io", repository: "foo/bar", ref: "v1.2.3", scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{9, "docker.io/foo/bar/baz:v1.2.3", "https", "", false, ImageRef{registry: "docker.io", pullType: byTag, server: "index.docker.io", repository: "foo/bar/baz", ref: "v1.2.3", scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{10, "docker.io/foo@sha256:" + sha, "https", "", false, ImageRef{registry: "docker.io", pullType: byDigest, server: "index.docker.io", repository: "foo", ref: "sha256:" + sha, scheme: "https", namespace: "", nsInPath: false, library: true}},
+	{11, "docker.io/foo/bar@sha256:" + sha, "https", "", false, ImageRef{registry: "docker.io", pullType: byDigest, server: "index.docker.io", repository: "foo/bar", ref: "sha256:" + sha, scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{12, "docker.io/foo/bar/baz@sha256:" + sha, "https", "", false, ImageRef{registry: "docker.io", pullType: byDigest, server: "index.docker.io", repository: "foo/bar/baz", ref: "sha256:" + sha, scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{13, "localhost:8888/docker.io/foo", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo", ref: "latest", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{14, "localhost:8888/docker.io/foo:latest", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo", ref: "latest", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{15, "localhost:8888/docker.io/foo/bar:latest", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo/bar", ref: "latest", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{16, "localhost:8888/docker.io/foo/bar/baz:latest", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo/bar/baz", ref: "latest", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{17, "localhost:8888/docker.io/foo/bar", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo/bar", ref: "latest", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{18, "localhost:8888/docker.io/foo/bar/baz", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo/bar/baz", ref: "latest", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{19, "localhost:8888/docker.io:5000/foo/bar", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo/bar", ref: "latest", scheme: "https", namespace: "docker.io:5000", nsInPath: true, library: false}},
+	{20, "localhost:8888/docker.io/foo:v1.2.3", "http", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo", ref: "v1.2.3", scheme: "http", namespace: "docker.io", nsInPath: true, library: false}},
+	{21, "localhost:8888/docker.io/foo/bar:v1.2.3", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo/bar", ref: "v1.2.3", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{22, "localhost:8888/docker.io/foo/bar/baz:v1.2.3", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo/bar/baz", ref: "v1.2.3", scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{23, "localhost:8888/docker.io/foo@sha256:" + sha, "https", "", false, ImageRef{registry: "localhost:8888", pullType: byDigest, server: "localhost:8888", repository: "foo", ref: "sha256:" + sha, scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{24, "localhost:8888/docker.io/foo/bar@sha256:" + sha, "https", "", false, ImageRef{registry: "localhost:8888", pullType: byDigest, server: "localhost:8888", repository: "foo/bar", ref: "sha256:" + sha, scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{25, "localhost:8888/docker.io/foo/bar/baz@sha256:" + sha, "https", "", false, ImageRef{registry: "localhost:8888", pullType: byDigest, server: "localhost:8888", repository: "foo/bar/baz", ref: "sha256:" + sha, scheme: "https", namespace: "docker.io", nsInPath: true, library: false}},
+	{26, "localhost:8888/docker/foo:v1.2.3", "https", "", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "docker/foo", ref: "v1.2.3", scheme: "https", namespace: "", nsInPath: false, library: false}},
+	{27, "localhost:8888/foo:v1.2.3", "https", "default.ns", false, ImageRef{registry: "localhost:8888", pullType: byTag, server: "localhost:8888", repository: "foo", ref: "v1.2.3", scheme: "https", namespace: "default.ns", nsInPath: false, library: false}},
+	{28, "docker.io/foo", "https", "xyz.io", false, ImageRef{registry: "docker.io", pullType: byTag, server: "index.docker.io", repository: "foo", ref: "latest", scheme: "https", namespace: "xyz.io", nsInPath: false, library: true}},
+	{29, "docker.io:5000/foo/bar", "http", "xyz.io", false, ImageRef{registry: "docker.io:5000", pullType: byTag, server: "docker.io:5000", repository: "foo/bar", ref: "latest", scheme: "http", namespace: "xyz.io", nsInPath: false, library: false}},
+	{30, "docker.io/foo:v1.2.3", "https", "xyz.io", false, ImageRef{registry: "docker.io", pullType: byTag, server: "index.docker.io", repository: "foo", ref: "v1.2.3", scheme: "https", namespace: "xyz.io", nsInPath: false, library: true}},
+	{31, "docker.io/foo@sha256:" + sha, "https", "xyz.io", false, ImageRef{registry: "docker.io", pullType: byDigest, server: "index.docker.io", repository: "foo", ref: "sha256:" + sha, scheme: "https", namespace: "xyz.io", nsInPath: false, library: true}},
+	{32, "invalid-ref", "https", "", true, ImageRef{}},
+	{33, "docker.io/frobozz.io:v1.1.1", "https", "", true, ImageRef{}},
+	{34, "docker.io/frobozz.io@sha256:" + sha, "https", "", true, ImageRef{}},
+	{35, "docker.io/frobozz.io:8888:v1.1.1", "https", "", true, ImageRef{}},
+	{36, "docker.io/frobozz.io:8888@sha256:" + sha, "https", "", true, ImageRef{}},
 }
 
-// Test make url with permutations of tag, digest, namespace y/n, sha override y/n
-func TestMakeUrl(t *testing.T) {
-	refs := []string{
-		"frobozz.registry.io/foo:v1.2.3",
-		"frobozz.registry.io/foo@sha256:123",
-	}
-	testDigest := "4639e50633756e99edc56b04f814a887c0eb958004c87a95f323558054cc7ef3"
-	ns := []string{"", "flathead.com"}
-	useNs := []bool{false, true}
-	sha := []string{"", testDigest}
-	expUrls := []string{
-		"frobozz.registry.io/foo:v1.2.3",
-		"frobozz.registry.io/foo@sha256:" + testDigest,
-		"flathead.com/foo:v1.2.3",
-		"flathead.com/foo@sha256:" + testDigest,
-		"frobozz.registry.io/foo@sha256:123",
-		"frobozz.registry.io/foo@sha256:123",
-		"flathead.com/foo@sha256:123",
-		"flathead.com/foo@sha256:123",
-	}
-	urlIdx := 0
-	for i := 0; i < len(refs); i++ {
-		for j := 0; j < len(ns); j++ {
-			for c := 0; c < len(sha); c++ {
-				ir, err := NewImageRef(refs[i], "http", ns[j])
-				if err != nil {
-					t.Fail()
-				}
-				url := ir.makeUrl(sha[c], useNs[j])
-				if url != expUrls[urlIdx] {
-					t.Fail()
-				}
-				urlIdx++
+func Test_UrlParse(t *testing.T) {
+	for _, tc := range testCases {
+		actual, err := NewImageRef(tc.input, tc.scheme, tc.namespace)
+		if tc.shouldErr {
+			if err == nil {
+				t.FailNow()
 			}
+			continue
+		}
+		if err != nil {
+			t.FailNow()
+		} else if !reflect.DeepEqual(actual, tc.expected) {
+			t.FailNow()
 		}
 	}
 }
