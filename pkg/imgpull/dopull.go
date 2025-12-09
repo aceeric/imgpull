@@ -163,8 +163,8 @@ func (p *puller) GetUrl() string {
 func (p *puller) SetUrl(url string) error {
 	if ir, err := imgref.NewImageRef(url, p.Opts.Scheme, p.Opts.Namespace); err != nil {
 		return err
-	} else if p.ImgRef.Registry != ir.Registry {
-		return fmt.Errorf("incoming registry %s must match existing %s", ir.Registry, p.ImgRef.Registry)
+	} else if p.ImgRef.Registry() != ir.Registry() {
+		return fmt.Errorf("incoming registry %s must match existing %s", ir.Registry(), p.ImgRef.Registry())
 	} else {
 		p.ImgRef = ir
 	}
@@ -323,7 +323,7 @@ func (p *puller) regCliFrom() methods.RegClient {
 func parseBearer(authHdr string) types.BearerAuth {
 	ba := types.BearerAuth{}
 	parts := []string{"realm", "service", "scope"}
-	expr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,]*)"{1}`
+	expr := `%s[\s]*=[\s]*"{1}([0-9A-Za-z\-:/.,_]*)"{1}`
 	for _, part := range parts {
 		srch := fmt.Sprintf(expr, part)
 		m := regexp.MustCompile(srch)
