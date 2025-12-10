@@ -1,4 +1,4 @@
-CMD_VERSION := v1.12.7
+CMD_VERSION := v1.12.8
 DATETIME    := $(shell date -u +%Y-%m-%dT%T.%2NZ)
 ROOT        := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -20,6 +20,10 @@ imgpull:
 	CGO_ENABLED=0 go build -ldflags "-X 'main.buildVer=$(CMD_VERSION)' -X 'main.buildDtm=$(DATETIME)'"\
 	 -a -o $(ROOT)/bin/imgpull $(ROOT)/cmd/imgpull/*.go
 
+.PHONY: install
+install:
+	cp bin/imgpull /usr/bin/imgpull
+
 .PHONY : help
 help:
 	@echo "$$HELPTEXT"
@@ -35,4 +39,5 @@ coverprof     Runs the test coverage profile report and displays it in a local
 
 imgpull       Builds the CLI. After building then: 'bin/imgpull --help'.
 
+install       Copies bin/imgpull to /usr/bin/imgpull (must run as root)
 endef

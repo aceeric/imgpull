@@ -1,5 +1,11 @@
 # Change Log
 
+## 10-Dec-2025
+Tag: `v1.12.8`
+
+1. Refactor image url parsing to support any number of repository segments
+2. Correct auth regex causing the `service` component to drop out and fail the upstream auth handshake
+
 ## 01-Dec-2025
 Tag: `v1.12.7`
 
