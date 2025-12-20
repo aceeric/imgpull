@@ -1,5 +1,10 @@
 # Change Log
 
+## 19-Dec-2025
+Tag: `v1.13.0`
+
+1. Add the `--token` arg to support pulling from AWS ECR (and other token-based registries).
+
 ## 10-Dec-2025
 Tag: `v1.12.8`
 

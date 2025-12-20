@@ -236,6 +236,12 @@ func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 func (p *puller) connect() error {
 	if p.Connected {
 		return nil
+	} else if p.Opts.Token != "" {
+		// if a token provided from an external source was provided then we
+		// will believe that token is valid and simply use it
+		p.ExtToken.Token = p.Opts.Token
+		p.Connected = true
+		return nil
 	}
 	status, auth, err := p.regCliFrom().V2ManifestsAuth()
 	if err != nil {

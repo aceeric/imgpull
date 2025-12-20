@@ -25,6 +25,8 @@ type PullerOpts struct {
 	Username string
 	// Password is the Password for basic auth.
 	Password string
+	// Token is an externally provided token that the upstream registry will accept.
+	Token string
 	// TlsCert is the path on the file system to a client pki certificate for mTLS.
 	TlsCert string
 	// TlsKey is the path on the file system to a client pki key for mTLS.

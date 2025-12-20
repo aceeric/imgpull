@@ -92,6 +92,18 @@ bin/imgpull docker.io/hello-world:latest hello-world-latest.tar\
   --user jqpubli --password mypass
 ```
 ---
+**`-t|--token [token value]`**
+
+Specifies an externally provided auth token that the upstream registry will honor.
+
+Example:
+```shell
+TOKEN=$(aws ecr get-authorization-token --output text --query 'authorizationData[].authorizationToken')
+ACCOUNT=111111111111
+REGION=ap-southeast-2
+bin/imgpull $ACCOUNT.dkr.ecr.$REGION.amazonaws.com/appzygy/ociregistry:1.10.0 ~/tmp/ociregistry.tar --token $TOKEN
+```
+---
 **`-s|--scheme [scheme]`**
 
 Specifies the scheme. The CLI defaults to `https`. Valid values are `http` and `https`.
@@ -302,6 +314,7 @@ You can see that the `PullerOpts` struct is the key to configuring the puller to
 | `ArchType` | `-a\|--arch [architecture]` | `ArchType: "amd64"` | `--arch amd64` |
 | `Username` | `-u\|--user [username]` | `Username: "foo"` | `--user foo` |
 | `Password` | `-p\|--password [password]` | `Password: "bar"` | `--password bar` |
+| `Token` | `-t\|--token [tokenval]` | `Token: "tokenval"` | `--token tokenval` |
 | `TlsCert` | `-c\|--cert [tls cert]` | `TlsCert: "/path/to/client-cert.pem"` | `--cert /path/to/client-cert.pem` |
 | `TlsKey` | `-k\|--key [tls key]` | `TlsKey: "/path/to/client-key.pem"` | `--key /path/to/client-key.pem` |
 | `CaCert` | `-x\|--cacert [tls ca cert]` | `CaCert: "/path/to/ca-cert.pem"` | `--cacert /path/to/ca-cert.pem` |

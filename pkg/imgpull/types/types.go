@@ -60,7 +60,7 @@ type BearerAuth struct {
 	Scope   string
 }
 
-// BearerToken holds the bearer token value.
+// BearerToken holds the bearer token value returned from the upstream.
 type BearerToken struct {
 	Token string
 }
@@ -68,4 +68,10 @@ type BearerToken struct {
 // BasicAuth holds the encoded username and password.
 type BasicAuth struct {
 	Encoded string
+}
+
+// ExtToken is a token obtained from a process external (or perhaps adjacent) to
+// the upstream, but that the upstream will accept as a basic auth password.
+type ExtToken struct {
+	Token string
 }

@@ -50,6 +50,8 @@ const (
 	usernameOpt optName = "user"
 	// e.g. --password mypassword
 	passwordOpt optName = "password"
+	// e.g. --token some-external-token
+	tokenOpt optName = "token"
 	// e.g. --scheme [http | https]
 	schemeOpt optName = "scheme"
 	// e.g. --cert /path/to/client-cert.pem
@@ -77,9 +79,9 @@ var usageText = `
 Usage:
 
 imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
- [-u|--user username] [-p|--password password] [-s|--scheme scheme] [-c|--cert tls cert]
- [-k|--key tls key] [-x|--cacert tls ca cert] [-i|--insecure] [-m|--manifest type]
- [-v|--version] [-h|--help] [--parsed]
+ [-u|--user username] [-p|--password password] [-t|--token tokenval] [-s|--scheme scheme]
+ [-c|--cert tls cert] [-k|--key tls key] [-x|--cacert tls ca cert] [-i|--insecure]
+ [-m|--manifest type] [-v|--version] [-h|--help] [--parsed]
 
 The image ref is required. Tar file is required if pulling a tarball. Everything else is
 optional. The OS and architecture default to your system's values.
@@ -110,6 +112,7 @@ func parseArgs() (optMap, error) {
 		namespaceOpt: {Name: namespaceOpt, Short: "n", Long: "ns"},
 		usernameOpt:  {Name: usernameOpt, Short: "u", Long: "user"},
 		passwordOpt:  {Name: passwordOpt, Short: "p", Long: "password"},
+		tokenOpt:     {Name: tokenOpt, Short: "t", Long: "token"},
 		schemeOpt:    {Name: schemeOpt, Short: "s", Long: "scheme", Dflt: "https"},
 		certOpt:      {Name: certOpt, Short: "c", Long: "cert"},
 		keyOpt:       {Name: keyOpt, Short: "k", Long: "key"},
@@ -183,6 +186,7 @@ func pullerOptsFrom(opts optMap) imgpull.PullerOpts {
 		Namespace: opts.getVal(namespaceOpt),
 		Username:  opts.getVal(usernameOpt),
 		Password:  opts.getVal(passwordOpt),
+		Token:     opts.getVal(tokenOpt),
 		TlsCert:   opts.getVal(certOpt),
 		TlsKey:    opts.getVal(keyOpt),
 		CaCert:    opts.getVal(caOpt),

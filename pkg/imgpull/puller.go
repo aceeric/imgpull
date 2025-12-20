@@ -22,6 +22,10 @@ type puller struct {
 	// If the upstream requires basic auth, this is the encoded user/pass
 	// from 'Opts'
 	Basic types.BasicAuth
+	// If a token is provided by an external process (e.g. aws ecr get-authorization-token)
+	// then this is the token value. Since this is a pre-approved token it can
+	// be immediately used to call the upstream OCI distribution REST API.
+	ExtToken types.ExtToken
 	// Indicates that the struct has been used to negotiate a connection to
 	// the upstream OCI distribution server.
 	Connected bool
@@ -81,10 +85,12 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 }
 
 // authHdr returns a key/value pair to set an auth header based on whether
-// the receiver is configured for bearer or basic auth.
+// the receiver is configured for supported kinds of auth.
 func (p *puller) authHdr() (string, string) {
 	if p.Token != (types.BearerToken{}) {
 		return "Authorization", "Bearer " + p.Token.Token
+	} else if p.ExtToken != (types.ExtToken{}) {
+		return "Authorization", "Basic " + p.ExtToken.Token
 	} else if p.Opts.Username != "" {
 		return "Authorization", "Basic " + p.Basic.Encoded
 	}
