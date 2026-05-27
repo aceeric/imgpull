@@ -1,5 +1,10 @@
 # Change Log
 
+## 27-May-2026
+Tag: `v1.14.0`
+
+1. Bump go version from  `1.25.4` to `1.26.3`
+
 ## 19-Dec-2025
 Tag: `v1.13.0`
 

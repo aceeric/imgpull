@@ -1,4 +1,4 @@
-CMD_VERSION := v1.13.0
+CMD_VERSION := v1.14.0
 DATETIME    := $(shell date -u +%Y-%m-%dT%T.%2NZ)
 ROOT        := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
@@ -14,6 +14,13 @@ test:
 coverprof:
 	go test $(ROOT)/pkg/imgpull $(ROOT)/internal/... -coverprofile=$(ROOT)/prof.out
 	go tool cover -html=$(ROOT)/prof.out
+
+.PHONY: update-modules
+update-modules:
+	go get -u ./...
+	rm go.sum
+	sed -i '/\/\/ indirect/d' go.mod
+	go mod tidy
 
 .PHONY: imgpull
 imgpull:
@@ -36,6 +43,8 @@ test          Runs the unit tests
 
 coverprof     Runs the test coverage profile report and displays it in a local
               browser window.
+
+update-modules    Runs 'go get -u' and 'go mod tidy'
 
 imgpull       Builds the CLI. After building then: 'bin/imgpull --help'.
 
