@@ -83,7 +83,7 @@ Usage:
 imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
  [-u|--user username] [-p|--password password] [-t|--token tokenval] [-s|--scheme scheme]
  [-c|--cert tls cert] [-k|--key tls key] [-x|--cacert tls ca cert] [-i|--insecure]
- [-m|--manifest type] [-v|--version] [-h|--help] [--parsed]
+ [-m|--manifest type] [-v|--version] [-h|--help] [--list-tar tarball] [--parsed]
 
 The image ref is required. Tar file is required if pulling a tarball. Everything else is
 optional. The OS and architecture default to your system's values.
@@ -100,6 +100,12 @@ Example 2:
 imgpull docker.io/hello-world:latest --manifest list
 
 The example pulls the manifest list for hello-world:latest and displays it to the console.
+
+Example 3:
+
+imgpull --list-tar docker-save.tar
+
+The example lists manifest and blobs from the tarball.
 `
 
 // parseArgs parses and validates the command line parameters and options, returning them in a map.

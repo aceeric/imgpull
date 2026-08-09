@@ -39,14 +39,14 @@ export HELPTEXT
 define HELPTEXT
 This make file provides the following targets:
 
-test          Runs the unit tests
+test            Runs the unit tests
 
-coverprof     Runs the test coverage profile report and displays it in a local
-              browser window.
+coverprof       Runs the test coverage profile report and displays it in a local
+                browser window.
 
-update-modules    Runs 'go get -u' and 'go mod tidy'
+update-modules  Runs 'go get -u' and 'go mod tidy'
 
-imgpull       Builds the CLI. After building then: 'bin/imgpull --help'.
+imgpull         Builds the CLI. After building then: 'bin/imgpull --help'.
 
-install       Copies bin/imgpull to /usr/bin/imgpull (must run as root)
+install         Copies bin/imgpull to /usr/bin/imgpull (must run as root)
 endef
