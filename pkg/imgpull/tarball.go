@@ -85,7 +85,7 @@ func (itb *ImageTarBall) TarManifestReader() iter.Seq2[ManifestHolder, error] {
 				}
 				continue
 			}
-			mh, err := NewManifestHolder(entry.MediaType, entry.Bytes, entry.Digest, entry.Ref)
+			mh, err := NewManifestHolder(entry.MediaType, entry.Bytes, util.DigestFrom(entry.Digest), entry.Ref)
 			if !yield(mh, err) {
 				return
 			}
