@@ -72,3 +72,81 @@ func Test_UrlParse(t *testing.T) {
 		}
 	}
 }
+
+// digestOverride is a second, deliberately different digest (bare hex, no
+// "sha256:" prefix - matching how the existing `sha` constant above is
+// used) for proving UrlWithDigest actually substitutes rather than keeping
+// whatever digest the receiver was originally parsed with.
+//
+// This is regression coverage for a real bug: a manifest list resolved by
+// digest (e.g. `ctr images export quay.io/cilium/cilium-envoy@sha256:<list
+// digest>`, or `imgpull <ref>@sha256:<list digest>`) caused every child
+// image selected from that list to incorrectly end up stamped with the
+// LIST's digest instead of its own, because makeUrl gave priority to the
+// receiver's own already-set digest over an explicit override. Confirmed
+// via real ctr/imgpull output before this fix - see e.g. a real tarball's
+// index.json where a manifest-list entry and one of its own children both
+// showed the identical digest, distinguished only by mediaType.
+const digestOverride = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+type urlWithDigestCase struct {
+	num      int
+	input    string // the ref the receiver is parsed from
+	expected string // the ref UrlWithDigest("sha256:"+digestOverride) should produce
+}
+
+var urlWithDigestCases = []urlWithDigestCase{
+	// The core bug scenario: the receiver's OWN ref is already digest-form
+	// (as happens after resolving a manifest list by digest) - UrlWithDigest
+	// must still substitute the passed-in digest, not keep the receiver's
+	// original one. This case would have returned
+	// ".../cilium-envoy@sha256:"+sha (the WRONG, original digest) before
+	// the fix.
+	{1, "quay.io/cilium/cilium-envoy@sha256:" + sha, "quay.io/cilium/cilium-envoy@sha256:" + digestOverride},
+	// Substituting from a TAG-form receiver already worked correctly before
+	// this fix (it went through the second branch, unconditionally) -
+	// included here as regression coverage that reordering makeUrl's
+	// branches to check the explicit override first didn't break this case.
+	{2, "quay.io/cilium/cilium-envoy:v1.2.3", "quay.io/cilium/cilium-envoy@sha256:" + digestOverride},
+}
+
+func Test_UrlWithDigest(t *testing.T) {
+	for _, tc := range urlWithDigestCases {
+		ir, err := NewImageRef(tc.input, "https", "")
+		if err != nil {
+			t.FailNow()
+		}
+		// UrlWithDigest is always called elsewhere in this codebase (see
+		// internal/tarball.walk) with a digest string that already carries
+		// the "sha256:" prefix - mirroring that here rather than passing
+		// bare hex, since makeUrl's own re-prefixing logic assumes it.
+		actual := ir.UrlWithDigest("sha256:" + digestOverride)
+		if actual != tc.expected {
+			t.FailNow()
+		}
+	}
+}
+
+// Test_UrlWithNs_NoOverride confirms UrlWithNs - which passes no digest
+// override at all (see makeUrl's sha == "" path) - still returns the
+// receiver's own original ref unchanged, whether digest-form or tag-form.
+// This is regression coverage that prioritizing an explicit override first
+// in makeUrl didn't disturb the "no override requested" path, which is
+// what UrlWithNs (and plain Url()) depend on.
+func Test_UrlWithNs_NoOverride(t *testing.T) {
+	digestIr, err := NewImageRef("quay.io/cilium/cilium-envoy@sha256:"+sha, "https", "")
+	if err != nil {
+		t.FailNow()
+	}
+	if digestIr.UrlWithNs() != "quay.io/cilium/cilium-envoy@sha256:"+sha {
+		t.FailNow()
+	}
+
+	tagIr, err := NewImageRef("quay.io/cilium/cilium-envoy:v1.2.3", "https", "")
+	if err != nil {
+		t.FailNow()
+	}
+	if tagIr.UrlWithNs() != "quay.io/cilium/cilium-envoy:v1.2.3" {
+		t.FailNow()
+	}
+}

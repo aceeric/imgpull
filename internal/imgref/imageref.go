@@ -177,10 +177,10 @@ func (ir *ImageRef) makeUrl(sha string, withNs bool) string {
 		regToUse = ir.namespace
 	}
 	var refToUse string
-	if strings.HasPrefix(ir.ref, "sha256:") {
-		refToUse = "@" + ir.ref
-	} else if sha != "" {
+	if sha != "" {
 		refToUse = "@sha256:" + util.DigestFrom(sha)
+	} else if strings.HasPrefix(ir.ref, "sha256:") {
+		refToUse = "@" + ir.ref
 	} else {
 		refToUse = ":" + ir.ref
 	}

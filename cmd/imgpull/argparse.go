@@ -70,6 +70,8 @@ const (
 	helpOpt optName = "help"
 	// e.g. --parsed
 	parsedOpt optName = "parsed"
+	// e.g. --list-tar
+	listTarOpt optName = "list-tar"
 )
 
 // optMap holds the parsed command line
@@ -122,19 +124,23 @@ func parseArgs() (optMap, error) {
 		versionOpt:   {Name: versionOpt, Short: "v", Long: "version", IsSwitch: true, Func: showVersionAndExit},
 		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsageAndExit},
 		parsedOpt:    {Name: parsedOpt, Long: "parsed", IsSwitch: true, Func: showParsedAndExit},
+		listTarOpt:   {Name: listTarOpt, Short: "l", Long: "list-tar"},
 	}
 	for i := 1; i < len(os.Args); i++ {
 		parsed := false
 		for _, option := range opts {
 			val, newi := getOptVal(option.Short, option.Long, option.IsSwitch, os.Args, i)
 			if val != "" {
+				opts.setVal(option.Name, val)
+				if option.Name == listTarOpt {
+					return opts, nil
+				}
 				if option.Func != nil {
 					option.Func(opts)
 				}
 				if option.Value != "" {
 					return opts, fmt.Errorf("option was specified more than once: %s", option.Name)
 				}
-				opts.setVal(option.Name, val)
 				i = newi
 				parsed = true
 				break
