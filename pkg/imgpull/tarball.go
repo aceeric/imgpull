@@ -1,10 +1,15 @@
 package imgpull
 
 import (
+	"fmt"
 	"io"
 	"iter"
+	"os"
+	"path/filepath"
 
 	"github.com/aceeric/imgpull/internal/tarball"
+	"github.com/aceeric/imgpull/internal/util"
+	"github.com/aceeric/imgpull/pkg/imgpull/types"
 )
 
 // ImageTarBall provides read access to the manifests and blobs in an image
@@ -114,4 +119,60 @@ func (itb *ImageTarBall) TarBlobReader(mh ManifestHolder) iter.Seq2[Blob, error]
 			}
 		}
 	}
+}
+
+// SaveBlobs writes every blob (layers + config) mh.Layers() references to
+// blobDir, named by bare hex digest (no "sha256:" prefix, via the same
+// util.DigestFrom this package already uses elsewhere) - matching exactly
+// the on-disk convention Puller.PullBlobs already uses for a live pull, so
+// a blob directory looks identical whether it was populated by a network
+// pull or a tarball load. blobDir is created if it doesn't exist.
+//
+// A blob whose target file already exists with the correct size is
+// skipped without even being read from the tarball - the same skip-if-
+// present check RegClient.V2Blobs already does for a live pull, done here
+// before consulting the tarball at all rather than after, for the same
+// reason: avoid the work entirely when it's not needed. Like PullBlobs,
+// this assumes no concurrent writer to the same blobDir - safe for the
+// intended use (loading while ociregistry itself isn't running), not
+// intended for use against a live server's blob directory.
+//
+// Calling this with a manifest-list mh (rather than an image manifest) is
+// a harmless no-op: mh.Layers() returns nothing for a list, so this
+// creates blobDir (if needed) and returns immediately.
+func (itb *ImageTarBall) SaveBlobs(mh ManifestHolder, blobDir string) error {
+	if err := os.MkdirAll(blobDir, 0755); err != nil {
+		return fmt.Errorf("unable to create directory %q, error: %q", blobDir, err)
+	}
+
+	var wanted []types.Layer
+	for _, layer := range mh.Layers() {
+		toFile := filepath.Join(blobDir, util.DigestFrom(layer.Digest))
+		if fi, err := os.Stat(toFile); err == nil && fi.Size() == int64(layer.Size) {
+			continue // already present with the correct size - skip
+		}
+		wanted = append(wanted, layer)
+	}
+	if len(wanted) == 0 {
+		return nil
+	}
+
+	for b, err := range itb.r.Blobs(wanted) {
+		if err != nil {
+			return err
+		}
+		toFile := filepath.Join(blobDir, util.DigestFrom(b.Digest))
+		f, err := os.Create(toFile)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(f, b.Reader); err != nil {
+			f.Close()
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
