@@ -5,7 +5,7 @@ This directory contains a couple of simple examples that show how to use the pac
 To get the package:
 
 ```
-go get github.com/aceeric/imgpull@v1.14.0
+go get github.com/aceeric/imgpull@v1.15.0
 ```
 
 ## The Examples

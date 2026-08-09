@@ -1,5 +1,10 @@
 # Change Log
 
+## 09-Aug-2026
+Tag: `v1.15.0`
+
+1. Implement image tarball extraction
+
 ## 27-May-2026
 Tag: `v1.14.0`
 
