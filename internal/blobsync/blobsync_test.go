@@ -1,6 +1,7 @@
 package blobsync
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 func TestSetConcur(t *testing.T) {
 	SetConcurrentBlobs(42)
-	if blobTimeoutSec != 42 || blobPulls.pullMap == nil {
+	if blobTimeoutSec != 42 || blobPulls.pulls == nil {
 		t.Fail()
 	}
 }
@@ -23,25 +24,56 @@ func TestQueue(t *testing.T) {
 	digest := "frobozz"
 	SetConcurrentBlobs(10)
 
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			so := EnqueueGet(digest)
+	for range 5 {
+		wg.Go(func() {
+			p, mustPull := Enqueue(digest)
 			go func() {
-				if so.Result == NotEnqueued {
+				if mustPull {
 					counter.Add(1)
 					time.Sleep(1 * time.Second)
-					DoneGet(digest)
+					Done(digest, p, nil)
 				}
 			}()
-			if Wait(so) != nil {
+			if Wait(p) != nil {
 				t.Fail()
 			}
-		}()
+		})
 	}
 	wg.Wait()
 	if counter.Load() != 1 {
 		t.Fail()
+	}
+}
+
+func TestWaiterSeesPullerError(t *testing.T) {
+	SetConcurrentBlobs(2)
+	p, mustPull := Enqueue("d1")
+	w, mustPull2 := Enqueue("d1")
+	if !mustPull || mustPull2 || p != w {
+		t.Fatal("expected one puller and one waiter on the same pull")
+	}
+	want := errors.New("boom")
+	go Done("d1", p, want)
+	if err := Wait(w); err != want {
+		t.Fatalf("waiter got %v, want %v", err, want)
+	}
+}
+
+func TestDoneAfterWaiterTimeout(t *testing.T) {
+	SetConcurrentBlobs(0) // waiters time out immediately
+	p, _ := Enqueue("d2")
+	w, _ := Enqueue("d2")
+	if Wait(w) == nil {
+		t.Fatal("expected timeout")
+	}
+	done := make(chan struct{})
+	go func() { Done("d2", p, nil); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("Done blocked")
+	}
+	if _, mustPull := Enqueue("d2"); !mustPull {
+		t.Fatal("expected a new puller after Done")
 	}
 }

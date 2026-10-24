@@ -2,6 +2,7 @@ package methods
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -136,27 +137,24 @@ func (rc RegClient) V2Auth(ba types.BearerAuth, encoded string) (types.BearerTok
 // This supports using the package as a library by synchronizing multiple goroutines
 // pulling the same blob.
 func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
-	if f, err := os.Stat(toFile); err == nil && f.Size() == int64(layer.Size) {
-		// already exists on the file system
+	if blobComplete(toFile, layer.Size) {
 		return nil
 	}
 	if !blobsync.ConcurrentBlobs {
 		return rc.V2BlobsInternal(layer, toFile)
 	}
-	so := blobsync.EnqueueGet(layer.Digest)
-	var err error
-	go func() {
-		if so.Result == blobsync.NotEnqueued {
-			defer blobsync.DoneGet(layer.Digest)
-			err = rc.V2BlobsInternal(layer, toFile)
-		}
-	}()
-	waitResult := blobsync.Wait(so)
-	if err != nil {
-		// blob pull err
-		return err
+	p, mustPull := blobsync.Enqueue(layer.Digest)
+	if !mustPull {
+		return blobsync.Wait(p)
 	}
-	return waitResult
+	err := errors.New("blob pull aborted") // reported to waiters if we panic
+	defer func() { blobsync.Done(layer.Digest, p, err) }()
+	if blobComplete(toFile, layer.Size) { // a puller may have finished since our first check
+		err = nil
+		return nil
+	}
+	err = rc.V2BlobsInternal(layer, toFile)
+	return err
 }
 
 // V2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
@@ -328,4 +326,10 @@ func getWwwAuthenticateHdrs(r *http.Response) []string {
 		}
 	}
 	return hdrs
+}
+
+// blobComplete returns true if the bloc exists and is the expected size.
+func blobComplete(path string, size int) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.Size() == int64(size)
 }

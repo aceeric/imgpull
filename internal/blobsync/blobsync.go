@@ -24,13 +24,20 @@ type SyncObj struct {
 	Result EnqueueResult
 }
 
+// pull is one in-flight blob download. err is written once, before done is closed;
+// closing done guarantees that waiters see err after <-done returns.
+type pull struct {
+	done chan struct{}
+	err  error
+}
+
 // pullMap supports multiple threads attempting to pull the same blob concurrently.
-// The pullMap struct member is a map of digests, each having 1+ channel(s) waiting
-// for the blob for that digest to finish pulling. The goroutine doing the pulling
-// also has a channel in that map.
+// The pulls member is a map of digests, each pointing to a 'pull' struct. The pulling
+// goroutine will signal the channel in the struct when it finishes allowing waiting
+// goroutines (and the pulling goroutine) to return the blob.
 type pullMap struct {
-	mu      sync.Mutex
-	pullMap map[string][]chan bool
+	mu    sync.Mutex
+	pulls map[string]*pull
 }
 
 var (
@@ -51,62 +58,38 @@ var (
 // seconds an enqueued goroutine will wait for a blob download before erroring.
 func SetConcurrentBlobs(timeoutSec int) {
 	blobTimeoutSec = timeoutSec
-	blobPulls.pullMap = make(map[string][]chan bool)
+	blobPulls.pulls = make(map[string]*pull)
 	ConcurrentBlobs = true
 }
 
-// EnqueueGet enqueues a pull for a blob using the passed digest. If there are
-// no other requesters, then the function returns 'notEnqueued' - meaning the caller
-// is the first requester and therefore will have to actually pull the blob. If a
-// request was previously enqueued for the blob then 'isEnqueued' is returned meaning
-// the caller should simply wait for a signal on the channel in the returned syncObj
-// struct and let the first goroutine complete the pull and signal all waiters.
-func EnqueueGet(digest string) SyncObj {
-	so := SyncObj{
-		Ch:     make(chan bool),
-		Result: NotEnqueued,
-	}
+// Enqueue returns the in-flight pull for the digest, and true if the caller
+// must perform the download (false means wait on the returned pull).
+func Enqueue(digest string) (*pull, bool) {
 	blobPulls.mu.Lock()
-	chans, exists := blobPulls.pullMap[digest]
-	if exists {
-		blobPulls.pullMap[digest] = append(chans, so.Ch)
-		so.Result = IsEnqueued
-	} else {
-		blobPulls.pullMap[digest] = []chan bool{so.Ch}
+	defer blobPulls.mu.Unlock()
+	if p, exists := blobPulls.pulls[digest]; exists {
+		return p, false
 	}
-	blobPulls.mu.Unlock()
-	return so
+	p := &pull{done: make(chan struct{})}
+	blobPulls.pulls[digest] = p
+	return p, true
 }
 
-// DoneGet signals all waiters that are associated with the digest in arg 1.
-func DoneGet(digest string) {
+// Done records the outcome of the download and releases all waiters.
+func Done(digest string, p *pull, err error) {
 	blobPulls.mu.Lock()
-	chans, exists := blobPulls.pullMap[digest]
-	if exists {
-		for _, ch := range chans {
-			// signal in a func so that if we write on a closed channel we can
-			// recover and keep looping
-			func() {
-				defer func() {
-					if err := recover(); err != nil {
-						// nop
-					}
-				}()
-				ch <- true
-			}()
-		}
-		delete(blobPulls.pullMap, digest)
-	}
-	blobPulls.mu.Unlock()
+	defer blobPulls.mu.Unlock()
+	p.err = err
+	close(p.done)
+	delete(blobPulls.pulls, digest)
 }
 
-// Wait waits to be signaled on the channel in the passed syncObj, or times out
-// based on the value of the package blobTimeoutSec variable.
-func Wait(so SyncObj) error {
+// Wait blocks until the download completes, returning its error, or times out.
+func Wait(p *pull) error {
 	select {
-	case <-so.Ch:
-		return nil
+	case <-p.done:
+		return p.err
 	case <-time.After(time.Duration(blobTimeoutSec) * time.Second):
-		return errors.New("timeout exceeded pulling image")
+		return errors.New("timeout exceeded waiting for blob")
 	}
 }
