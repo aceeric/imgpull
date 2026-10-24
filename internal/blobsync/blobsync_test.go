@@ -27,15 +27,14 @@ func TestQueue(t *testing.T) {
 	for range 5 {
 		wg.Go(func() {
 			p, mustPull := Enqueue(digest)
-			go func() {
-				if mustPull {
-					counter.Add(1)
-					time.Sleep(1 * time.Second)
-					Done(digest, p, nil)
-				}
-			}()
+			if mustPull {
+				counter.Add(1)
+				time.Sleep(1 * time.Second)
+				Done(digest, p, nil)
+				return
+			}
 			if Wait(p) != nil {
-				t.Fail()
+				t.Error("waiter got error")
 			}
 		})
 	}
@@ -53,8 +52,11 @@ func TestWaiterSeesPullerError(t *testing.T) {
 		t.Fatal("expected one puller and one waiter on the same pull")
 	}
 	want := errors.New("boom")
-	go Done("d1", p, want)
-	if err := Wait(w); err != want {
+	doneCh := make(chan struct{})
+	go func() { Done("d1", p, want); close(doneCh) }()
+	err := Wait(w)
+	<-doneCh // don't let Done outlive the test
+	if err != want {
 		t.Fatalf("waiter got %v, want %v", err, want)
 	}
 }

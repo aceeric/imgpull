@@ -1,13 +1,16 @@
 package methods
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aceeric/imgpull/internal/blobsync"
 	"github.com/aceeric/imgpull/internal/imgref"
@@ -49,6 +52,14 @@ type ManifestGetResult struct {
 	ManifestDigest string
 }
 
+// idleReader resets an idle timer on every read. When the timer fires, it cancels
+// the request context, and the blocked Read returns an error.
+type idleReader struct {
+	r io.Reader
+	t *time.Timer
+	d time.Duration
+}
+
 // allManifestTypes lists all of the manifest types that this package
 // will operate on.
 var allManifestTypes []types.MediaType = []types.MediaType{
@@ -58,14 +69,14 @@ var allManifestTypes []types.MediaType = []types.MediaType{
 	types.V1ociManifestMt,
 }
 
-// allManifestTypesStr concats all the manifest types supported to be pulled
-// into a comma-separated string.
-func allManifestTypesStr() string {
-	toReturn := string(allManifestTypes[0])
-	for i := 1; i < len(allManifestTypes); i++ {
-		toReturn = fmt.Sprintf("%s,%s", toReturn, allManifestTypes[i])
-	}
-	return toReturn
+// blobIdleTimeout aborts a blob download if no bytes arrive for this long. It's a var
+// so tests can shorten it.
+var blobIdleTimeout = 60 * time.Second
+
+func (i *idleReader) Read(p []byte) (int, error) {
+	n, err := i.r.Read(p)
+	i.t.Reset(i.d)
+	return n, err
 }
 
 // V2ManifestsAuth does a HEAD request for the manifest in the receiver, only looking for
@@ -158,49 +169,119 @@ func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
 }
 
 // V2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
-// passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
-func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
+// passed 'layer' arg. The blob is written to a temp file in the same directory as 'toFile', verified
+// against the layer size and digest, then renamed to 'toFile'. So 'toFile' either doesn't exist or
+// holds the complete, verified blob. On any error the temp file is removed.
+func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) (err error) {
+	dgst := digest.Digest(layer.Digest)
+	if err := dgst.Validate(); err != nil {
+		return fmt.Errorf("invalid blob digest %q: %w", layer.Digest, err)
+	}
 	url := ""
 	if rc.ImgRef.NsInPath() {
 		url = fmt.Sprintf("%s/v2/%s/%s/blobs/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace(), rc.ImgRef.Repository(), layer.Digest)
 	} else {
 		url = fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository(), layer.Digest, rc.nsQueryParm())
 	}
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// started now, so it also covers the wait for the response headers
+	timer := time.AfterFunc(blobIdleTimeout, cancel)
+	defer timer.Stop()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
 	rc.setAuthHdr(req)
 	resp, err := rc.Client.Do(req)
-	if resp != nil {
-		defer resp.Body.Close()
-	}
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%d from server for blob digest %q", resp.StatusCode, layer.Digest)
 	}
-	blobFile, err := os.Create(toFile)
+
+	tmp, err := os.CreateTemp(filepath.Dir(toFile), filepath.Base(toFile)+".*.tmp")
 	if err != nil {
 		return err
 	}
-	defer blobFile.Close()
-
-	bytesRead := 0
-	for {
-		part, err := io.ReadAll(io.LimitReader(resp.Body, maxBlobBytes))
+	defer func() {
 		if err != nil {
-			return err
+			tmp.Close() // harmless if already closed
+			os.Remove(tmp.Name())
 		}
-		if len(part) == 0 {
-			break
-		}
-		bytesRead += len(part)
-		blobFile.Write(part)
+	}()
+
+	verifier := dgst.Verifier()
+	body := &idleReader{r: resp.Body, t: timer, d: blobIdleTimeout}
+	n, err := io.Copy(io.MultiWriter(tmp, verifier), body)
+	if err != nil {
+		return fmt.Errorf("error reading blob %q: %w", layer.Digest, err)
 	}
-	if bytesRead != layer.Size {
-		return fmt.Errorf("error getting blob - expected %d bytes, got %d bytes instead", layer.Size, bytesRead)
+	if n != int64(layer.Size) {
+		return fmt.Errorf("blob %q: expected %d bytes, got %d", layer.Digest, layer.Size, n)
 	}
-	return nil
+	if !verifier.Verified() {
+		return fmt.Errorf("blob %q: digest mismatch", layer.Digest)
+	}
+	if err = tmp.Chmod(0644); err != nil { // CreateTemp uses 0600
+		return err
+	}
+	if err = tmp.Sync(); err != nil {
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), toFile)
 }
+
+// // V2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
+// // passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
+// func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
+// 	url := ""
+// 	if rc.ImgRef.NsInPath() {
+// 		url = fmt.Sprintf("%s/v2/%s/%s/blobs/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace(), rc.ImgRef.Repository(), layer.Digest)
+// 	} else {
+// 		url = fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository(), layer.Digest, rc.nsQueryParm())
+// 	}
+// 	req, _ := http.NewRequest(http.MethodGet, url, nil)
+// 	rc.setAuthHdr(req)
+// 	resp, err := rc.Client.Do(req)
+// 	if resp != nil {
+// 		defer resp.Body.Close()
+// 	}
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if resp.StatusCode != 200 {
+// 		return fmt.Errorf("%d from server for blob digest %q", resp.StatusCode, layer.Digest)
+// 	}
+// 	blobFile, err := os.Create(toFile)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer blobFile.Close()
+//
+// 	bytesRead := 0
+// 	for {
+// 		part, err := io.ReadAll(io.LimitReader(resp.Body, maxBlobBytes))
+// 		if err != nil {
+// 			return err
+// 		}
+// 		if len(part) == 0 {
+// 			break
+// 		}
+// 		bytesRead += len(part)
+// 		blobFile.Write(part)
+// 	}
+// 	if bytesRead != layer.Size {
+// 		return fmt.Errorf("error getting blob - expected %d bytes, got %d bytes instead", layer.Size, bytesRead)
+// 	}
+// 	return nil
+// }
 
 // V2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
@@ -332,4 +413,14 @@ func getWwwAuthenticateHdrs(r *http.Response) []string {
 func blobComplete(path string, size int) bool {
 	fi, err := os.Stat(path)
 	return err == nil && fi.Size() == int64(size)
+}
+
+// allManifestTypesStr concats all the manifest types supported to be pulled
+// into a comma-separated string.
+func allManifestTypesStr() string {
+	toReturn := string(allManifestTypes[0])
+	for i := 1; i < len(allManifestTypes); i++ {
+		toReturn = fmt.Sprintf("%s,%s", toReturn, allManifestTypes[i])
+	}
+	return toReturn
 }

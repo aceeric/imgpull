@@ -2,6 +2,7 @@ package imgpull
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/aceeric/imgpull/internal/imgref"
 	"github.com/aceeric/imgpull/pkg/imgpull/types"
@@ -65,16 +66,16 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 	if ir, err := imgref.NewImageRef(o.Url, o.Scheme, o.Namespace); err != nil {
 		return &puller{}, err
 	} else {
-		c := &http.Client{
-			Transport: http.DefaultTransport.(*http.Transport).Clone(),
-		}
+		t := http.DefaultTransport.(*http.Transport).Clone()
+		t.ResponseHeaderTimeout = 30 * time.Second
+		c := &http.Client{Transport: t}
 		if o.MaxIdleConnsPerHost != 0 {
-			c.Transport.(*http.Transport).MaxIdleConnsPerHost = o.MaxIdleConnsPerHost
+			t.MaxIdleConnsPerHost = o.MaxIdleConnsPerHost
 		}
 		if cfg, err := o.configureTls(); err != nil {
 			return &puller{}, err
 		} else if cfg != nil {
-			c.Transport.(*http.Transport).TLSClientConfig = cfg
+			t.TLSClientConfig = cfg
 		}
 		return &puller{
 			ImgRef: ir,

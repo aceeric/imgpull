@@ -1,6 +1,8 @@
 package methods
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +20,7 @@ import (
 	"github.com/aceeric/imgpull/internal/testhelpers"
 	"github.com/aceeric/imgpull/mock"
 	"github.com/aceeric/imgpull/pkg/imgpull/types"
+	"github.com/opencontainers/go-digest"
 )
 
 // Tests bearer auth
@@ -93,7 +96,7 @@ func TestV2BlobsSimple(t *testing.T) {
 // v2/blobs endpoint. (The others were therefore enqueued.)
 func TestV2BlobsConcur(t *testing.T) {
 	blob := "zzzz"
-	digest := testhelpers.MakeDigest()
+	digest := getDigest(blob)
 
 	var httpMethodCnt atomic.Uint64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -305,4 +308,77 @@ func newRegClient(image string, url string, namespace string) (RegClient, error)
 		Client:  &http.Client{},
 		AuthHdr: AuthHeader{},
 	}, nil
+}
+
+func getDigest(s string) string {
+	digest := sha256.Sum256([]byte(s))
+	return fmt.Sprintf("%x", digest)
+}
+
+func blobTestClient(t *testing.T, h http.HandlerFunc) RegClient {
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+	ir, err := imgref.NewImageRef(strings.TrimPrefix(srv.URL, "http://")+"/foo/bar:v1", "http", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return RegClient{ImgRef: ir, Client: srv.Client()}
+}
+
+func noTmpFiles(t *testing.T, dir string) {
+	if m, _ := filepath.Glob(filepath.Join(dir, "*.tmp")); len(m) != 0 {
+		t.Fatalf("temp files left behind: %v", m)
+	}
+}
+
+func TestBlobOK(t *testing.T) {
+	data := []byte("hello blob")
+	layer := types.Layer{Digest: digest.FromBytes(data).String(), Size: len(data)}
+	rc := blobTestClient(t, func(w http.ResponseWriter, r *http.Request) { w.Write(data) })
+	dir := t.TempDir()
+	to := filepath.Join(dir, digest.FromBytes(data).Hex())
+	if err := rc.V2BlobsInternal(layer, to); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(to); !bytes.Equal(b, data) {
+		t.Fatal("content mismatch")
+	}
+	noTmpFiles(t, dir)
+}
+
+func TestBlobFailuresLeaveNothing(t *testing.T) {
+	data := []byte("hello blob")
+	good := digest.FromBytes(data).String()
+	cases := map[string]struct {
+		layer types.Layer
+		h     http.HandlerFunc
+	}{
+		"short body": {types.Layer{Digest: good, Size: len(data) + 5},
+			func(w http.ResponseWriter, r *http.Request) { w.Write(data) }},
+		"wrong content": {types.Layer{Digest: good, Size: len(data)},
+			func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("HELLO BLOB")) }},
+		"stall": {types.Layer{Digest: good, Size: len(data)},
+			func(w http.ResponseWriter, r *http.Request) {
+				w.Write(data[:3])
+				w.(http.Flusher).Flush()
+				<-r.Context().Done() // never send the rest
+			}},
+	}
+	saved := blobIdleTimeout
+	blobIdleTimeout = 200 * time.Millisecond
+	defer func() { blobIdleTimeout = saved }()
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			rc := blobTestClient(t, c.h)
+			dir := t.TempDir()
+			to := filepath.Join(dir, "blob")
+			if err := rc.V2BlobsInternal(c.layer, to); err == nil {
+				t.Fatal("expected error")
+			}
+			if _, err := os.Stat(to); !os.IsNotExist(err) {
+				t.Fatal("final file should not exist")
+			}
+			noTmpFiles(t, dir)
+		})
+	}
 }
