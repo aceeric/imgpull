@@ -238,51 +238,6 @@ func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) (err error
 	return os.Rename(tmp.Name(), toFile)
 }
 
-// // V2BlobsInternal calls the 'v2/<repository>/blobs' endpoint to get a blob by the digest in the
-// // passed 'layer' arg. The blob is stored in the location specified by 'toFile'.
-// func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) error {
-// 	url := ""
-// 	if rc.ImgRef.NsInPath() {
-// 		url = fmt.Sprintf("%s/v2/%s/%s/blobs/%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Namespace(), rc.ImgRef.Repository(), layer.Digest)
-// 	} else {
-// 		url = fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository(), layer.Digest, rc.nsQueryParm())
-// 	}
-// 	req, _ := http.NewRequest(http.MethodGet, url, nil)
-// 	rc.setAuthHdr(req)
-// 	resp, err := rc.Client.Do(req)
-// 	if resp != nil {
-// 		defer resp.Body.Close()
-// 	}
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if resp.StatusCode != 200 {
-// 		return fmt.Errorf("%d from server for blob digest %q", resp.StatusCode, layer.Digest)
-// 	}
-// 	blobFile, err := os.Create(toFile)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer blobFile.Close()
-//
-// 	bytesRead := 0
-// 	for {
-// 		part, err := io.ReadAll(io.LimitReader(resp.Body, maxBlobBytes))
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if len(part) == 0 {
-// 			break
-// 		}
-// 		bytesRead += len(part)
-// 		blobFile.Write(part)
-// 	}
-// 	if bytesRead != layer.Size {
-// 		return fmt.Errorf("error getting blob - expected %d bytes, got %d bytes instead", layer.Size, bytesRead)
-// 	}
-// 	return nil
-// }
-
 // V2Manifests calls the 'v2/<repository>/manifests' endpoint. The resulting manifest is returned in
 // a ManifestHolder struct and could be any one of the types defined in the 'allManifestTypes' array.
 // If you pass an empty string in 'sha', then the GET will use the image url that was used to initialize

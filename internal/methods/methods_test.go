@@ -104,9 +104,9 @@ func TestV2BlobsConcur(t *testing.T) {
 			t.Fail()
 		}
 		httpMethodCnt.Add(1)
-		w.WriteHeader(http.StatusOK)
 		w.Header().Add("Content-Length", strconv.Itoa(len(blob)))
 		w.Header().Add("Content-Type", "application/octet-stream")
+		w.WriteHeader(http.StatusOK)
 		for i := 0; i < len(blob); i++ {
 			w.Write([]byte(blob[i : i+1]))
 			time.Sleep(500 * time.Millisecond)
@@ -118,6 +118,9 @@ func TestV2BlobsConcur(t *testing.T) {
 	defer os.RemoveAll(d)
 
 	blobsync.SetConcurrentBlobs(10)
+	defer func() {
+		blobsync.ConcurrentBlobs = false
+	}()
 
 	var wg sync.WaitGroup
 	blobPullerCnt := 6
