@@ -136,7 +136,13 @@ func (rc RegClient) V2Auth(ba types.BearerAuth, encoded string) (types.BearerTok
 		return types.BearerToken{}, fmt.Errorf("auth attempt failed. Status: %d", resp.StatusCode)
 	}
 	var token types.BearerToken
-	decoder := json.NewDecoder(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return types.BearerToken{}, err
+	}
+	bodyString := string(bodyBytes)
+	reader := strings.NewReader(bodyString)
+	decoder := json.NewDecoder(reader)
 	err = decoder.Decode(&token)
 	if err != nil {
 		return types.BearerToken{}, err

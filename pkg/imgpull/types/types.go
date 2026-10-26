@@ -60,9 +60,13 @@ type BearerAuth struct {
 	Scope   string
 }
 
-// BearerToken holds the bearer token value returned from the upstream.
+// BearerToken holds the bearer token value returned from the upstream. ExpiresIn
+// is seconds. 300 is five minutes.
 type BearerToken struct {
-	Token string
+	Token       string `json:"token"`
+	AccessToken string `json:"access_token"`
+	ExpiresIn   int    `json:"expires_in"`
+	IssuedAt    string `json:"issued_at"`
 }
 
 // BasicAuth holds the encoded username and password.
