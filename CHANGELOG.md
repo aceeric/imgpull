@@ -1,5 +1,12 @@
 # Change Log
 
+## 26-Oct-2026
+
+Commit: `5856343` (tag is pending)
+
+1. Add logic to detect and renew expired token.
+2. Concurrency changes to support [ociregistry](https://github.com/aceeric/ociregistry)
+
 ## 10-Aug-2026
 Tag: `v1.15.1`
 
