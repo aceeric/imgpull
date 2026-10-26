@@ -20,6 +20,11 @@ type puller struct {
 	// If the upstream requires bearer auth, this is the token received from
 	// the upstream registry
 	Token types.BearerToken
+	// bearerAuth is the realm, service and scope the bearer token was requested with,
+	// kept so the token can be renewed.
+	bearerAuth types.BearerAuth
+	// tokenExpiry is when the bearer token expires, measured from when it was requested.
+	tokenExpiry time.Time
 	// If the upstream requires basic auth, this is the encoded user/pass
 	// from 'Opts'
 	Basic types.BasicAuth

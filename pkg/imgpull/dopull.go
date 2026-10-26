@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/aceeric/imgpull/internal/imgref"
 	"github.com/aceeric/imgpull/internal/methods"
@@ -120,13 +121,22 @@ func (p *puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	if err := os.MkdirAll(blobDir, 0755); err != nil {
 		return fmt.Errorf("unable to create directory %q, error: %q", blobDir, err)
 	}
-	rc := p.regCliFrom()
 	for _, layer := range mh.Layers() {
-		if err := rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
+		if err := p.pullBlob(layer, blobDir); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// pullBlob pulls one blob into blobDir. A bearer token that is about to expire is renewed
+// first: on a slow link, pulling earlier (large) blobs can take longer than the token's
+// lifetime. The registry client is built per blob so it carries the current token.
+func (p *puller) pullBlob(layer types.Layer, blobDir string) error {
+	if err := p.renewTokenIfExpiring(); err != nil {
+		return err
+	}
+	return p.regCliFrom().V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest)))
 }
 
 func (p *puller) HeadManifest() (types.ManifestDescriptor, error) {
@@ -217,7 +227,7 @@ func (p *puller) pull(blobDir string) (tar.ImageTarball, error) {
 		}
 	}
 	for _, layer := range mh.Layers() {
-		if err := rc.V2Blobs(layer, filepath.Join(blobDir, util.DigestFrom(layer.Digest))); err != nil {
+		if err := p.pullBlob(layer, blobDir); err != nil {
 			return tar.ImageTarball{}, err
 		}
 	}
@@ -271,18 +281,7 @@ func (p *puller) authenticate(auth []string) error {
 	rc := p.regCliFrom()
 	for _, hdr := range auth {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
-			ba := parseBearer(hdr)
-			encoded := ""
-			if p.Opts.Username != "" && p.Opts.Password != "" {
-				delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
-				encoded = base64.StdEncoding.EncodeToString([]byte(delimited))
-			}
-			bt, err := rc.V2Auth(ba, encoded)
-			if err != nil {
-				return err
-			}
-			p.Token = bt
-			return nil
+			return p.getBearerToken(parseBearer(hdr))
 		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
 			delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
 			encoded := base64.StdEncoding.EncodeToString([]byte(delimited))
@@ -295,6 +294,48 @@ func (p *puller) authenticate(auth []string) error {
 		}
 	}
 	return fmt.Errorf("unable to parse auth param: %v", auth)
+}
+
+// defaultTokenLifetime is the lifetime to assume for a bearer token whose response has no
+// expires_in, per the Docker token authentication spec.
+const defaultTokenLifetime = 60 * time.Second
+
+// tokenRenewWindow: before each blob pull, a bearer token that expires within this window is
+// renewed. It's a var so tests can change it.
+var tokenRenewWindow = 5 * time.Second
+
+// getBearerToken requests a bearer token for the passed realm, service and scope, using the
+// receiver's username and password if it has them, and stores it in the receiver with its
+// expiry. The expiry is measured from when the token was requested rather than from the
+// token's issued_at, so a difference between the registry's clock and this one doesn't matter.
+func (p *puller) getBearerToken(ba types.BearerAuth) error {
+	encoded := ""
+	if p.Opts.Username != "" && p.Opts.Password != "" {
+		delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
+		encoded = base64.StdEncoding.EncodeToString([]byte(delimited))
+	}
+	requested := time.Now()
+	bt, err := p.regCliFrom().V2Auth(ba, encoded)
+	if err != nil {
+		return err
+	}
+	lifetime := time.Duration(bt.ExpiresIn) * time.Second
+	if lifetime <= 0 {
+		lifetime = defaultTokenLifetime
+	}
+	p.Token = bt
+	p.bearerAuth = ba
+	p.tokenExpiry = requested.Add(lifetime)
+	return nil
+}
+
+// renewTokenIfExpiring renews the receiver's bearer token if it expires within
+// tokenRenewWindow. Basic auth and externally provided tokens are not renewed here.
+func (p *puller) renewTokenIfExpiring() error {
+	if p.Token == (types.BearerToken{}) || time.Until(p.tokenExpiry) > tokenRenewWindow {
+		return nil
+	}
+	return p.getBearerToken(p.bearerAuth)
 }
 
 // regCliFrom creates a 'RegClient' from the receiver, consisting of a subset of receiver
