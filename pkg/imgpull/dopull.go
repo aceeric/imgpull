@@ -2,6 +2,7 @@ package imgpull
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/aceeric/imgpull/internal/imgref"
+	"github.com/aceeric/imgpull/internal/logging"
 	"github.com/aceeric/imgpull/internal/methods"
 	"github.com/aceeric/imgpull/internal/tar"
 	"github.com/aceeric/imgpull/internal/util"
@@ -121,6 +123,7 @@ func (p *puller) PullBlobs(mh ManifestHolder, blobDir string) error {
 	if err := os.MkdirAll(blobDir, 0755); err != nil {
 		return fmt.Errorf("unable to create directory %q, error: %q", blobDir, err)
 	}
+	logging.L().Infof("pulling %d blob(s) for %s", len(mh.Layers()), p.ImgRef.Url())
 	for _, layer := range mh.Layers() {
 		if err := p.pullBlob(layer, blobDir); err != nil {
 			return err
@@ -249,6 +252,7 @@ func (p *puller) connect() error {
 	} else if p.Opts.Token != "" {
 		// if a token provided from an external source was provided then we
 		// will believe that token is valid and simply use it
+		logging.L().Debugf("connect %s: using the provided token", p.ImgRef.Url())
 		p.ExtToken.Token = p.Opts.Token
 		p.Connected = true
 		return nil
@@ -283,6 +287,7 @@ func (p *puller) authenticate(auth []string) error {
 		if strings.HasPrefix(strings.ToLower(hdr), "bearer") {
 			return p.getBearerToken(parseBearer(hdr))
 		} else if strings.HasPrefix(strings.ToLower(hdr), "basic") {
+			logging.L().Debugf("connect %s: using basic auth", p.ImgRef.Url())
 			delimited := fmt.Sprintf("%s:%s", p.Opts.Username, p.Opts.Password)
 			encoded := base64.StdEncoding.EncodeToString([]byte(delimited))
 			ba, err := rc.V2Basic(encoded)
@@ -315,18 +320,85 @@ func (p *puller) getBearerToken(ba types.BearerAuth) error {
 		encoded = base64.StdEncoding.EncodeToString([]byte(delimited))
 	}
 	requested := time.Now()
+	logging.L().Debugf("requesting a bearer token: realm %s, service %q, scope %q, credentials: %t", ba.Realm, ba.Service, ba.Scope, encoded != "")
 	bt, err := p.regCliFrom().V2Auth(ba, encoded)
 	if err != nil {
+		logging.L().Errorf("bearer token request to %s: %s", ba.Realm, err)
 		return err
 	}
-	lifetime := time.Duration(bt.ExpiresIn) * time.Second
-	if lifetime <= 0 {
-		lifetime = defaultTokenLifetime
-	}
+	lifetime := tokenLifetime(bt)
 	p.Token = bt
 	p.bearerAuth = ba
 	p.tokenExpiry = requested.Add(lifetime)
+	expiresIn, jwt := "none", "not a JWT"
+	if bt.ExpiresIn > 0 {
+		expiresIn = (time.Duration(bt.ExpiresIn) * time.Second).String()
+	}
+	if d, ok := jwtLifetime(bearerValue(bt)); ok {
+		jwt = d.String()
+	}
+	logging.L().Infof("got a bearer token from %s, valid for %s (expires_in: %s, JWT: %s)", ba.Realm, lifetime, expiresIn, jwt)
 	return nil
+}
+
+// bearerValue returns the token to send in the Authorization header. Registries return it
+// as "token" and, for OAuth2 compatibility, often also as "access_token"; some return only
+// "access_token".
+func bearerValue(bt types.BearerToken) string {
+	if bt.Token != "" {
+		return bt.Token
+	}
+	return bt.AccessToken
+}
+
+// tokenLifetime returns how long the passed bearer token is valid: from the response's
+// expires_in and, if the token is a JWT (e.g. from the GitLab container registry, which may
+// not send expires_in), from its claims. When both are known the shorter is used. If neither
+// is, the Docker token spec's default of 60 seconds is used.
+func tokenLifetime(bt types.BearerToken) time.Duration {
+	var lifetime time.Duration
+	if bt.ExpiresIn > 0 {
+		lifetime = time.Duration(bt.ExpiresIn) * time.Second
+	}
+	if jwt, ok := jwtLifetime(bearerValue(bt)); ok && (lifetime == 0 || jwt < lifetime) {
+		lifetime = jwt
+	}
+	if lifetime <= 0 {
+		lifetime = defaultTokenLifetime
+	}
+	return lifetime
+}
+
+// jwtLifetime returns exp - iat (or exp - nbf if there is no iat) from the passed token's
+// claims if the token is a JWT. The signature isn't checked: the registry does that, and the
+// claims are only used to decide when to renew. Both claims are on the issuer's clock, so a
+// difference between that clock and this one doesn't matter. A token that isn't a JWT, or
+// whose claims don't give a positive lifetime, returns false.
+func jwtLifetime(token string) (time.Duration, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return 0, false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(parts[1], "="))
+	if err != nil {
+		return 0, false
+	}
+	var claims struct {
+		Exp int64 `json:"exp"`
+		Iat int64 `json:"iat"`
+		Nbf int64 `json:"nbf"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil || claims.Exp == 0 {
+		return 0, false
+	}
+	start := claims.Iat
+	if start == 0 {
+		start = claims.Nbf
+	}
+	if start == 0 || claims.Exp <= start {
+		return 0, false
+	}
+	return time.Duration(claims.Exp-start) * time.Second, true
 }
 
 // renewTokenIfExpiring renews the receiver's bearer token if it expires within
@@ -335,6 +407,7 @@ func (p *puller) renewTokenIfExpiring() error {
 	if p.Token == (types.BearerToken{}) || time.Until(p.tokenExpiry) > tokenRenewWindow {
 		return nil
 	}
+	logging.L().Infof("renewing the bearer token: %s left", time.Until(p.tokenExpiry).Round(time.Millisecond))
 	return p.getBearerToken(p.bearerAuth)
 }
 

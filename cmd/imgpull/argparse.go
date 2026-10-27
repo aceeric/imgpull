@@ -72,6 +72,8 @@ const (
 	parsedOpt optName = "parsed"
 	// e.g. --list-tar
 	listTarOpt optName = "list-tar"
+	// e.g. --log-level debug
+	logLevelOpt optName = "log-level"
 )
 
 // optMap holds the parsed command line
@@ -84,9 +86,14 @@ imgpull <image ref> <tar file> [-o|--os os] [-a|--arch arch] [-n|--ns namespace]
  [-u|--user username] [-p|--password password] [-t|--token tokenval] [-s|--scheme scheme]
  [-c|--cert tls cert] [-k|--key tls key] [-x|--cacert tls ca cert] [-i|--insecure]
  [-m|--manifest type] [-v|--version] [-h|--help] [--list-tar tarball] [--parsed]
+ [--log-level level]
 
 The image ref is required. Tar file is required if pulling a tarball. Everything else is
 optional. The OS and architecture default to your system's values.
+
+--log-level writes diagnostics to stderr: error, info (adds token and blob activity), or
+debug (adds each request). Without it nothing is logged. Credentials and tokens are never
+logged.
 
 Example 1:
 
@@ -131,6 +138,7 @@ func parseArgs() (optMap, error) {
 		helpOpt:      {Name: helpOpt, Short: "h", Long: "help", IsSwitch: true, Func: showUsageAndExit},
 		parsedOpt:    {Name: parsedOpt, Long: "parsed", IsSwitch: true, Func: showParsedAndExit},
 		listTarOpt:   {Name: listTarOpt, Short: "l", Long: "list-tar"},
+		logLevelOpt:  {Name: logLevelOpt, Long: "log-level"},
 	}
 	for i := 1; i < len(os.Args); i++ {
 		parsed := false
@@ -168,6 +176,13 @@ func parseArgs() (optMap, error) {
 		if opts[manifestOpt].Value != "image" && opts[manifestOpt].Value != "list" {
 			return opts, fmt.Errorf("invalid value %q for --manifest arg", opts[manifestOpt].Value)
 		}
+	}
+	if opts[logLevelOpt].Value != "" {
+		level, err := parseLogLevel(opts[logLevelOpt].Value)
+		if err != nil {
+			return opts, err
+		}
+		opts.setVal(logLevelOpt, level.String())
 	}
 	// need the image to pull
 	if opts[imageOpt].Value == "" {

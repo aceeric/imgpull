@@ -94,7 +94,7 @@ func NewPullerWith(o PullerOpts) (Puller, error) {
 // the receiver is configured for supported kinds of auth.
 func (p *puller) authHdr() (string, string) {
 	if p.Token != (types.BearerToken{}) {
-		return "Authorization", "Bearer " + p.Token.Token
+		return "Authorization", "Bearer " + bearerValue(p.Token)
 	} else if p.ExtToken != (types.ExtToken{}) {
 		return "Authorization", "Basic " + p.ExtToken.Token
 	} else if p.Opts.Username != "" {

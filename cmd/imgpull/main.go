@@ -15,6 +15,10 @@ func main() {
 		fmt.Println(err)
 		showUsageAndExit(nil)
 	}
+	if level := cmdline.getVal(logLevelOpt); level != "" {
+		lvl, _ := parseLogLevel(level)
+		imgpull.SetLogger(newStderrLogger(lvl))
+	}
 	if cmdline.getVal(listTarOpt) != "" {
 		if err := listTar(cmdline.getVal(listTarOpt)); err != nil {
 			fmt.Println(err)

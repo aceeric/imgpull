@@ -14,6 +14,7 @@ import (
 
 	"github.com/aceeric/imgpull/internal/blobsync"
 	"github.com/aceeric/imgpull/internal/imgref"
+	"github.com/aceeric/imgpull/internal/logging"
 	"github.com/aceeric/imgpull/internal/util"
 	"github.com/aceeric/imgpull/pkg/imgpull/types"
 
@@ -89,9 +90,11 @@ func (rc RegClient) V2ManifestsAuth() (int, []string, error) {
 		defer resp.Body.Close()
 	}
 	if err != nil {
+		logging.L().Errorf("HEAD %s (auth check): %s", url, err)
 		return 0, nil, err
 	}
 	auth := getWwwAuthenticateHdrs(resp)
+	logging.L().Debugf("HEAD %s (auth check): %d, challenge: %q", url, resp.StatusCode, auth)
 	return resp.StatusCode, auth, err
 }
 
@@ -155,6 +158,7 @@ func (rc RegClient) V2Auth(ba types.BearerAuth, encoded string) (types.BearerTok
 // pulling the same blob.
 func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
 	if blobComplete(toFile, layer.Size) {
+		logging.L().Debugf("blob %s already present", layer.Digest)
 		return nil
 	}
 	if !blobsync.ConcurrentBlobs {
@@ -162,7 +166,12 @@ func (rc RegClient) V2Blobs(layer types.Layer, toFile string) error {
 	}
 	p, mustPull := blobsync.Enqueue(layer.Digest)
 	if !mustPull {
-		return blobsync.Wait(p)
+		logging.L().Debugf("blob %s is being pulled by another request - waiting for it", layer.Digest)
+		if err := blobsync.Wait(p); err != nil {
+			logging.L().Errorf("waiting for blob %s: %s", layer.Digest, err)
+			return err
+		}
+		return nil
 	}
 	err := errors.New("blob pull aborted") // reported to waiters if we panic
 	defer func() { blobsync.Done(layer.Digest, p, err) }()
@@ -189,6 +198,15 @@ func (rc RegClient) V2BlobsInternal(layer types.Layer, toFile string) (err error
 	} else {
 		url = fmt.Sprintf("%s/v2/%s/blobs/%s%s", rc.ImgRef.ServerUrl(), rc.ImgRef.Repository(), layer.Digest, rc.nsQueryParm())
 	}
+	start := time.Now()
+	logging.L().Debugf("GET %s (%d bytes expected)", url, layer.Size)
+	defer func() {
+		if err != nil {
+			logging.L().Errorf("blob %s: %s", layer.Digest, err)
+		} else {
+			logging.L().Infof("pulled blob %s: %d bytes in %s", layer.Digest, layer.Size, time.Since(start).Round(time.Millisecond))
+		}
+	}()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// started now, so it also covers the wait for the response headers
@@ -256,14 +274,18 @@ func (rc RegClient) V2Manifests(sha string) (ManifestGetResult, error) {
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 	req.Header.Set("Accept", allManifestTypesStr())
 	rc.setAuthHdr(req)
+	start := time.Now()
 	resp, err := rc.Client.Do(req)
 	if resp != nil {
 		defer resp.Body.Close()
 	}
 	if err != nil {
+		logging.L().Errorf("GET %s: %s", url, err)
 		return ManifestGetResult{}, err
 	}
+	logging.L().Debugf("GET %s: %d %s in %s", url, resp.StatusCode, resp.Header.Get("Content-Type"), time.Since(start).Round(time.Millisecond))
 	if resp.StatusCode != http.StatusOK {
+		logging.L().Errorf("GET %s: status %d", url, resp.StatusCode)
 		return ManifestGetResult{}, fmt.Errorf("get manifests attempt failed. Status: %d", resp.StatusCode)
 	}
 	mediaType := resp.Header.Get("Content-Type")
