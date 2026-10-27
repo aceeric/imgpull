@@ -1,5 +1,12 @@
 # Change Log
 
+## 27-Oct-2026
+
+Commit: `5856812ecee343` (tag is pending)
+
+1. Add JWT token parsing (e.g. from GitLab)
+2. Add simple logging for visibility into server interaction
+
 ## 26-Oct-2026
 
 Commit: `5856343` (tag is pending)
