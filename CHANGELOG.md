@@ -1,8 +1,14 @@
 # Change Log
 
+## 30-Oct-2026
+
+Tag: `v1.16.0`
+
+1. Tag changes below since `v1.15.1`
+
 ## 27-Oct-2026
 
-Commit: `5856812ecee343` (tag is pending)
+Commit: `812ecee` (tag is pending)
 
 1. Add JWT token parsing (e.g. from GitLab)
 2. Add simple logging for visibility into server interaction
