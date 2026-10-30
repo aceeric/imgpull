@@ -25,7 +25,7 @@ bin/imgpull --version
 
 Success looks like (date and version will differ):
 ```shell
-imgpull version: 1.2.0 build date: 2025-03-01T01:56:38.18Z
+imgpull version: vN.N.N build date: YYYY-MM-DDTHH:MM:SS.MSZ
 ```
 
 ### Usage
@@ -135,7 +135,7 @@ Configures verification of the server cert using a specified CA. By default, ser
 Example:
 ```shell
 bin/imgpull my.private.registry/hello-world:latest hello-world-latest.tar\
-  --ca /path/to/ca.pem
+  --cacert /path/to/ca.pem
 ```
 
 ---
@@ -188,6 +188,27 @@ This is a developer troubleshooting option that prints the parsed command line w
 Example:
 ```shell
 bin/imgpull my.inhouse.http.registry/hello-world:latest hello-world-latest.tar --cacert /path/to/ca.pem --parsed
+```
+
+---
+**`-l|--list-tar`**
+
+Lists the manifest and layers in an image tarball.
+
+Example:
+```shell
+bin/imgpull --list-tar quay.io_jetstack_cert-manager-webhook_v1.19.3
+```
+
+
+---
+**`--log-level [level]`**
+
+Provides visibility into internals. Valie values for level are `error`, `info`, and `debug`.
+
+Example:
+```shell
+bin/imgpull docker.io/library/openjdk:24-slim-bullseye opnjdk.tar --log-level debug
 ```
 
 ### More about namespaces
@@ -302,7 +323,7 @@ Or, suppose you're pulling from a private registry that presents a cert signed b
     p, err := imgpull.NewPullerWith(opts)
 ```
 
-You can see that the `PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. In fact the CLI options directly map to the fields in the `PullerOpts` struct as shown by the table below.
+You can see that the `PullerOpts` struct is the key to configuring the puller to interface with the upstream registry. In fact the CLI options directly map to the fields in the `PullerOpts` struct as shown by the table below. (Some options are only used by the CLI and don't make sense in the `PullerOpts` struct.)
 
 > See the [Examples](examples) directory for examples of how to use the project as a library.
 
@@ -320,6 +341,8 @@ You can see that the `PullerOpts` struct is the key to configuring the puller to
 | `CaCert` | `-x\|--cacert [tls ca cert]` | `CaCert: "/path/to/ca-cert.pem"` | `--cacert /path/to/ca-cert.pem` |
 | `Insecure` | `-i\|--insecure` | `Insecure: true` | `--insecure` |
 | `Namespace` | `-n\|--ns [namespace]` | `Namespace: "docker.io"` | `--ns docker.io` |
+| n/a | `-l\|--list-tar [tarball]` | n/a | `--list-tar mytarball.tar` |
+| n/a | `--log-level [error\|info\|debug]` | n/a | `--log-devel debug` |
 
 ### The `Puller` interface
 
